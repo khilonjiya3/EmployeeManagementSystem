@@ -1,0 +1,507 @@
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../../core/theme/app_theme.dart';
+import '../../core/utils/app_utils.dart';
+import '../../data/models/app_models.dart';
+import '../../data/repositories/auth_repository.dart';
+import '../shared/widgets.dart' as w;
+
+final supervisorsProvider = StateNotifierProvider.autoDispose<SupervisorsNotifier, AsyncValue<List<SupervisorModel>>>((ref) {
+  return SupervisorsNotifier(ref.watch(supervisorRepositoryProvider));
+});
+
+class SupervisorsNotifier extends StateNotifier<AsyncValue<List<SupervisorModel>>> {
+  final SupervisorRepository _repo;
+
+  SupervisorsNotifier(this._repo) : super(const AsyncLoading()) {
+    load();
+  }
+
+  Future<void> load({bool? isActive, String? search}) async {
+    try {
+      final data = await _repo.getAll(search: search, isActive: isActive);
+      state = AsyncData(data);
+    } catch (e, st) {
+      state = AsyncError(e, st);
+    }
+  }
+
+  void refresh() => load();
+}
+
+class SupervisorsListScreen extends ConsumerStatefulWidget {
+  const SupervisorsListScreen({super.key});
+
+  @override
+  ConsumerState<SupervisorsListScreen> createState() => _SupervisorsListScreenState();
+}
+
+class _SupervisorsListScreenState extends ConsumerState<SupervisorsListScreen> {
+  final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final supervisors = ref.watch(supervisorsProvider);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Supervisors'),
+        actions: [
+          IconButton(icon: const Icon(Icons.add_rounded), onPressed: () => context.push('/supervisors/new')),
+        ],
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: w.SearchBar(
+              controller: _searchController,
+              hint: 'Search supervisors...',
+              onChanged: (v) => ref.read(supervisorsProvider.notifier).load(search: v),
+              onClear: () {
+                _searchController.clear();
+                ref.read(supervisorsProvider.notifier).load();
+              },
+            ),
+          ),
+          Expanded(
+            child: supervisors.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('Error: $e')),
+              data: (list) => list.isEmpty
+                  ? w.EmptyState(
+                      title: 'No supervisors found',
+                      icon: Icons.supervisor_account_outlined,
+                      actionLabel: 'Add Supervisor',
+                      onAction: () => context.push('/supervisors/new'),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: () async => ref.read(supervisorsProvider.notifier).refresh(),
+                      child: ListView.separated(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: list.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (_, i) => _SupervisorCard(
+                          supervisor: list[i],
+                          onTap: () => context.push('/supervisors/${list[i].id}'),
+                        ),
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => context.push('/supervisors/new'),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Add Supervisor'),
+      ),
+    );
+  }
+}
+
+class _SupervisorCard extends StatelessWidget {
+  final SupervisorModel supervisor;
+  final VoidCallback onTap;
+
+  const _SupervisorCard({required this.supervisor, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.secondary200),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 24,
+              backgroundColor: AppColors.accent100,
+              backgroundImage: supervisor.profilePhotoUrl != null ? NetworkImage(supervisor.profilePhotoUrl!) : null,
+              child: supervisor.profilePhotoUrl == null
+                  ? Text(supervisor.name[0].toUpperCase(), style: const TextStyle(color: AppColors.accent700, fontWeight: FontWeight.w700, fontFamily: 'Inter'))
+                  : null,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(supervisor.name, style: theme.textTheme.titleMedium),
+                  Text(supervisor.supervisorCode, style: theme.textTheme.bodySmall?.copyWith(color: AppColors.accent600)),
+                  Text(supervisor.email, style: theme.textTheme.bodySmall),
+                  if (supervisor.assignedArea != null)
+                    Text(supervisor.assignedArea!, style: theme.textTheme.labelSmall),
+                ],
+              ),
+            ),
+            w.StatusBadge(status: supervisor.isActive ? 'active' : 'inactive'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class SupervisorFormScreen extends ConsumerStatefulWidget {
+  final String? supervisorId;
+  const SupervisorFormScreen({super.key, this.supervisorId});
+
+  @override
+  ConsumerState<SupervisorFormScreen> createState() => _SupervisorFormScreenState();
+}
+
+class _SupervisorFormScreenState extends ConsumerState<SupervisorFormScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _mobileController = TextEditingController();
+  final _areaController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _isActive = true;
+  bool _isLoading = false;
+  bool _obscurePassword = true;
+  File? _photoFile;
+  String? _existingPhotoUrl;
+
+  bool get isEditing => widget.supervisorId != null;
+
+  @override
+  void initState() {
+    super.initState();
+    if (isEditing) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadSupervisor());
+    }
+  }
+
+  Future<void> _loadSupervisor() async {
+    final sup = await ref.read(supervisorRepositoryProvider).getById(widget.supervisorId!);
+    if (sup == null || !mounted) return;
+    _nameController.text = sup.name;
+    _emailController.text = sup.email;
+    _mobileController.text = sup.mobile ?? '';
+    _areaController.text = sup.assignedArea ?? '';
+    _isActive = sup.isActive;
+    _existingPhotoUrl = sup.profilePhotoUrl;
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _mobileController.dispose();
+    _areaController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickPhoto() async {
+    final picker = ImagePicker();
+    final file = await picker.pickImage(source: ImageSource.gallery, maxWidth: 800, imageQuality: 80);
+    if (file != null) setState(() => _photoFile = File(file.path));
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _isLoading = true);
+
+    try {
+      final repo = ref.read(supervisorRepositoryProvider);
+      final data = {
+        'name': _nameController.text.trim(),
+        'email': _emailController.text.trim(),
+        'mobile': _mobileController.text.trim().isEmpty ? null : _mobileController.text.trim(),
+        'assigned_area': _areaController.text.trim().isEmpty ? null : _areaController.text.trim(),
+        'is_active': _isActive,
+      };
+
+      if (isEditing) {
+        await repo.update(widget.supervisorId!, data);
+      } else {
+        await repo.create(data, _passwordController.text);
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(isEditing ? 'Supervisor updated' : 'Supervisor created'), backgroundColor: AppColors.success500),
+        );
+        context.pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error500),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(isEditing ? 'Edit Supervisor' : 'Add Supervisor')),
+      body: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Center(
+                child: GestureDetector(
+                  onTap: _pickPhoto,
+                  child: Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 48,
+                        backgroundColor: AppColors.accent100,
+                        backgroundImage: _photoFile != null
+                            ? FileImage(_photoFile!) as ImageProvider
+                            : _existingPhotoUrl != null
+                                ? NetworkImage(_existingPhotoUrl!)
+                                : null,
+                        child: _photoFile == null && _existingPhotoUrl == null
+                            ? const Icon(Icons.person_rounded, color: AppColors.accent400, size: 48)
+                            : null,
+                      ),
+                      Positioned(
+                        bottom: 0,
+                        right: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary500,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 2),
+                          ),
+                          child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 14),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              TextFormField(
+                controller: _nameController,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(labelText: 'Full Name *', prefixIcon: Icon(Icons.person_outline)),
+                validator: (v) => ValidationUtils.validateRequired(v, 'Name'),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                readOnly: isEditing,
+                decoration: InputDecoration(
+                  labelText: 'Email Address *',
+                  prefixIcon: const Icon(Icons.email_outlined),
+                  helperText: isEditing ? 'Email cannot be changed' : null,
+                ),
+                validator: ValidationUtils.validateEmail,
+              ),
+              const SizedBox(height: 16),
+              if (!isEditing) ...[
+                TextFormField(
+                  controller: _passwordController,
+                  obscureText: _obscurePassword,
+                  decoration: InputDecoration(
+                    labelText: 'Password *',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                    ),
+                  ),
+                  validator: ValidationUtils.validatePassword,
+                ),
+                const SizedBox(height: 16),
+              ],
+              TextFormField(
+                controller: _mobileController,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(labelText: 'Mobile Number', prefixIcon: Icon(Icons.phone_outlined)),
+                validator: ValidationUtils.validateMobile,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _areaController,
+                decoration: const InputDecoration(labelText: 'Assigned Area', prefixIcon: Icon(Icons.map_outlined)),
+              ),
+              const SizedBox(height: 16),
+              SwitchListTile(
+                title: const Text('Active Status'),
+                subtitle: Text(_isActive ? 'Supervisor is active' : 'Supervisor is inactive'),
+                value: _isActive,
+                onChanged: (v) => setState(() => _isActive = v),
+                activeColor: AppColors.success500,
+                contentPadding: EdgeInsets.zero,
+              ),
+              const SizedBox(height: 32),
+              ElevatedButton(
+                onPressed: _isLoading ? null : _save,
+                child: _isLoading
+                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : Text(isEditing ? 'Update Supervisor' : 'Add Supervisor'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class SupervisorDetailScreen extends ConsumerWidget {
+  final String id;
+  const SupervisorDetailScreen({super.key, required this.id});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Supervisor Details'),
+        actions: [
+          IconButton(icon: const Icon(Icons.edit_outlined), onPressed: () => context.push('/supervisors/$id/edit')),
+        ],
+      ),
+      body: FutureBuilder(
+        future: ref.read(supervisorRepositoryProvider).getById(id),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          final sup = snapshot.data;
+          if (sup == null) return const Center(child: Text('Not found'));
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Center(
+                  child: Column(
+                    children: [
+                      CircleAvatar(
+                        radius: 48,
+                        backgroundColor: AppColors.accent100,
+                        backgroundImage: sup.profilePhotoUrl != null ? NetworkImage(sup.profilePhotoUrl!) : null,
+                        child: sup.profilePhotoUrl == null
+                            ? Text(sup.name[0].toUpperCase(), style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w700, color: AppColors.accent600, fontFamily: 'Inter'))
+                            : null,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(sup.name, style: Theme.of(context).textTheme.headlineMedium),
+                      Text(sup.supervisorCode, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.accent600)),
+                      const SizedBox(height: 8),
+                      w.StatusBadge(status: sup.isActive ? 'active' : 'inactive'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                _InfoRow(icon: Icons.email_outlined, label: 'Email', value: sup.email),
+                if (sup.mobile != null) _InfoRow(icon: Icons.phone_outlined, label: 'Mobile', value: sup.mobile!),
+                if (sup.assignedArea != null) _InfoRow(icon: Icons.map_outlined, label: 'Area', value: sup.assignedArea!),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.people_rounded, size: 18),
+                  label: const Text('Manage Assigned Employees'),
+                  onPressed: () => _showAssignedEmployees(context, ref, sup),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showAssignedEmployees(BuildContext context, WidgetRef ref, SupervisorModel sup) async {
+    final employees = await ref.read(supervisorRepositoryProvider).getAssignedEmployees(sup.id);
+    if (!context.mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        expand: false,
+        builder: (_, ctrl) => Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Assigned Employees (${employees.length})', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 16),
+              Expanded(
+                child: employees.isEmpty
+                    ? const Center(child: Text('No employees assigned'))
+                    : ListView.builder(
+                        controller: ctrl,
+                        itemCount: employees.length,
+                        itemBuilder: (_, i) {
+                          final e = employees[i];
+                          return ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: AppColors.primary100,
+                              child: Text(e.name[0].toUpperCase(), style: const TextStyle(color: AppColors.primary600, fontFamily: 'Inter')),
+                            ),
+                            title: Text(e.name),
+                            subtitle: Text(e.employeeCode),
+                            trailing: w.StatusBadge(status: e.status),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _InfoRow({required this.icon, required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: AppColors.secondary400),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: Theme.of(context).textTheme.labelSmall),
+              Text(value, style: Theme.of(context).textTheme.bodyMedium),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
