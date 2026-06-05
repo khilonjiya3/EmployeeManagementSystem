@@ -1,31 +1,52 @@
 import 'dart:async';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final connectivityServiceProvider = StateNotifierProvider<ConnectivityNotifier, bool>((ref) {
+final connectivityServiceProvider =
+    StateNotifierProvider<ConnectivityNotifier, bool>((ref) {
   return ConnectivityNotifier();
 });
 
 class ConnectivityNotifier extends StateNotifier<bool> {
-  final _connectivity = Connectivity();
-  late final StreamSubscription<List<ConnectivityResult>> _sub;
+  final Connectivity _connectivity = Connectivity();
+
+  StreamSubscription<List<ConnectivityResult>>? _subscription;
 
   ConnectivityNotifier() : super(true) {
-    _init();
+    _initialize();
   }
 
-  Future<void> _init() async {
-    final results = await _connectivity.checkConnectivity();
-    state = results.any((r) => r != ConnectivityResult.none);
-    _sub = _connectivity.onConnectivityChanged.listen((results) {
-      final isOnline = results.any((r) => r != ConnectivityResult.none);
-      if (isOnline != state) state = isOnline;
-    });
+  Future<void> _initialize() async {
+    try {
+      final results = await _connectivity.checkConnectivity();
+
+      state = results.any(
+        (result) => result != ConnectivityResult.none,
+      );
+
+      _subscription = _connectivity.onConnectivityChanged.listen(
+        (results) {
+          final isOnline = results.any(
+            (result) => result != ConnectivityResult.none,
+          );
+
+          if (isOnline != state) {
+            state = isOnline;
+          }
+        },
+        onError: (_) {
+          state = false;
+        },
+      );
+    } catch (_) {
+      state = false;
+    }
   }
 
   @override
   void dispose() {
-    _sub.cancel();
+    _subscription?.cancel();
     super.dispose();
   }
 }
