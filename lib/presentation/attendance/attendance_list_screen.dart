@@ -94,12 +94,16 @@ class _AttendanceCard extends ConsumerWidget {
   final AttendanceModel attendance;
   final bool isAdmin;
 
-  const _AttendanceCard({required this.attendance, required this.isAdmin});
+  const _AttendanceCard({
+    required this.attendance,
+    required this.isAdmin,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final details = attendance.details ?? [];
+
     final present = details.where((d) => d.status == 'present').length;
     final absent = details.where((d) => d.status == 'absent').length;
     final halfDay = details.where((d) => d.status == 'half_day').length;
@@ -121,7 +125,9 @@ class _AttendanceCard extends ConsumerWidget {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: attendance.isApproved ? AppColors.success50 : AppColors.accent50,
+                    color: attendance.isApproved
+                        ? AppColors.success50
+                        : AppColors.accent50,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Column(
@@ -129,11 +135,25 @@ class _AttendanceCard extends ConsumerWidget {
                     children: [
                       Text(
                         DateFormat('dd').format(attendance.attendanceDate),
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, fontFamily: 'Inter', color: attendance.isApproved ? AppColors.success700 : AppColors.accent700),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          fontFamily: 'Inter',
+                          color: attendance.isApproved
+                              ? AppColors.success700
+                              : AppColors.accent600,
+                        ),
                       ),
                       Text(
                         DateFormat('MMM').format(attendance.attendanceDate),
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, fontFamily: 'Inter', color: attendance.isApproved ? AppColors.success600 : AppColors.accent600),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                          fontFamily: 'Inter',
+                          color: attendance.isApproved
+                              ? AppColors.success600
+                              : AppColors.accent600,
+                        ),
                       ),
                     ],
                   ),
@@ -144,18 +164,30 @@ class _AttendanceCard extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        attendance.locationName ?? attendance.workSiteName ?? 'Location not set',
+                        attendance.locationName ??
+                            attendance.workSiteName ??
+                            'Location not set',
                         style: theme.textTheme.titleMedium,
                         overflow: TextOverflow.ellipsis,
                       ),
                       if (attendance.supervisorName != null)
-                        Text(attendance.supervisorName!, style: theme.textTheme.bodySmall),
+                        Text(
+                          attendance.supervisorName!,
+                          style: theme.textTheme.bodySmall,
+                        ),
                       if (attendance.workDescription != null)
-                        Text(attendance.workDescription!, style: theme.textTheme.bodySmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        Text(
+                          attendance.workDescription!,
+                          style: theme.textTheme.bodySmall,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                     ],
                   ),
                 ),
-                w.StatusBadge(status: attendance.isApproved ? 'approved' : 'pending'),
+                w.StatusBadge(
+                  status: attendance.isApproved ? 'approved' : 'pending',
+                ),
               ],
             ),
           ),
@@ -166,10 +198,26 @@ class _AttendanceCard extends ConsumerWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _AttendanceStat(label: 'Present', value: present, color: AppColors.success500),
-                  _AttendanceStat(label: 'Absent', value: absent, color: AppColors.error500),
-                  _AttendanceStat(label: 'Half Day', value: halfDay, color: AppColors.accent500),
-                  _AttendanceStat(label: 'Leave', value: leave, color: AppColors.primary500),
+                  _AttendanceStat(
+                    label: 'Present',
+                    value: present,
+                    color: AppColors.success500,
+                  ),
+                  _AttendanceStat(
+                    label: 'Absent',
+                    value: absent,
+                    color: AppColors.error500,
+                  ),
+                  _AttendanceStat(
+                    label: 'Half Day',
+                    value: halfDay,
+                    color: AppColors.accent500,
+                  ),
+                  _AttendanceStat(
+                    label: 'Leave',
+                    value: leave,
+                    color: AppColors.primary500,
+                  ),
                 ],
               ),
             ),
@@ -177,20 +225,27 @@ class _AttendanceCard extends ConsumerWidget {
           if (isAdmin && !attendance.isApproved && details.isNotEmpty) ...[
             const Divider(height: 1),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
+              ),
               child: Row(
                 children: [
                   if (attendance.latitude != null)
                     TextButton.icon(
                       icon: const Icon(Icons.map_outlined, size: 16),
                       label: const Text('View Location'),
-                      onPressed: () => context.push('/attendance/${attendance.id}/map'),
+                      onPressed: () =>
+                          context.push('/attendance/${attendance.id}/map'),
                     ),
                   const Spacer(),
                   TextButton(
-                    onPressed: () => _approve(context, ref, attendance.id),
+                    onPressed: () =>
+                        _approve(context, ref, attendance.id),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.success600,
+                    ),
                     child: const Text('Approve'),
-                    style: TextButton.styleFrom(foregroundColor: AppColors.success600),
                   ),
                 ],
               ),
@@ -201,7 +256,11 @@ class _AttendanceCard extends ConsumerWidget {
     );
   }
 
-  Future<void> _approve(BuildContext context, WidgetRef ref, String id) async {
+  Future<void> _approve(
+    BuildContext context,
+    WidgetRef ref,
+    String id,
+  ) async {
     final confirm = await w.ConfirmDialog.show(
       context,
       title: 'Approve Attendance?',
@@ -209,24 +268,34 @@ class _AttendanceCard extends ConsumerWidget {
       confirmLabel: 'Approve',
       confirmColor: AppColors.success500,
     );
+
     if (confirm != true || !context.mounted) return;
 
     final client = ref.read(supabaseProvider);
     final userId = client.auth.currentUser?.id;
+
     if (userId == null) return;
 
     try {
       await ref.read(attendanceRepositoryProvider).approve(id, userId);
+
       ref.read(attendanceListProvider.notifier).refresh();
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Attendance approved'), backgroundColor: AppColors.success500),
+          const SnackBar(
+            content: Text('Attendance approved'),
+            backgroundColor: AppColors.success500,
+          ),
         );
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error500),
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: AppColors.error500,
+          ),
         );
       }
     }
