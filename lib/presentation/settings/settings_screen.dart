@@ -329,12 +329,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
 
     if (confirm == true) {
-  await ref.read(authRepositoryProvider).signOut();
+  try {
+    await ref.read(authRepositoryProvider).signOut();
 
-  ref.invalidate(currentProfileProvider);
+    ref.invalidate(currentProfileProvider);
 
-  if (mounted) {
-    context.go('/splash');
+    if (mounted) {
+      context.go('/login');
+    }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Logout Error: $e')),
+      );
+    }
   }
 }
   }
