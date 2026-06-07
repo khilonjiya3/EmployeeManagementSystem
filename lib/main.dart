@@ -7,7 +7,6 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'core/constants/app_constants.dart';
 import 'core/network/connectivity_service.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
@@ -44,12 +43,37 @@ Future<void> main() async {
   try {
     await dotenv.load(fileName: '.env');
 
+    final supabaseUrl = dotenv.env['SUPABASE_URL'];
+    final supabaseAnonKey =
+        dotenv.env['SUPABASE_ANON_KEY'];
+
+    debugPrint(
+      'SUPABASE_URL = $supabaseUrl',
+    );
+
+    debugPrint(
+      'SUPABASE_ANON_KEY loaded = ${supabaseAnonKey != null && supabaseAnonKey.isNotEmpty}',
+    );
+
+    if (supabaseUrl == null ||
+        supabaseUrl.isEmpty) {
+      throw Exception(
+        'SUPABASE_URL missing in .env',
+      );
+    }
+
+    if (supabaseAnonKey == null ||
+        supabaseAnonKey.isEmpty) {
+      throw Exception(
+        'SUPABASE_ANON_KEY missing in .env',
+      );
+    }
+
     await Supabase.initialize(
-      url: dotenv.env['SUPABASE_URL'] ??
-          AppConstants.supabaseUrl,
-      anonKey: dotenv.env['SUPABASE_ANON_KEY'] ??
-          AppConstants.supabaseAnonKey,
-      authOptions: const FlutterAuthClientOptions(
+      url: supabaseUrl,
+      anonKey: supabaseAnonKey,
+      authOptions:
+          const FlutterAuthClientOptions(
         authFlowType: AuthFlowType.pkce,
         autoRefreshToken: true,
       ),
@@ -61,15 +85,20 @@ Future<void> main() async {
     runApp(
       ProviderScope(
         overrides: [
-          localDatabaseProvider.overrideWithValue(localDb,
-          ),
+          localDatabaseProvider
+              .overrideWithValue(localDb),
         ],
         child: const AppRoot(),
       ),
     );
   } catch (e, stackTrace) {
-    debugPrint('Initialization Error: $e');
-    debugPrintStack(stackTrace: stackTrace);
+    debugPrint(
+      'Initialization Error: $e',
+    );
+
+    debugPrintStack(
+      stackTrace: stackTrace,
+    );
 
     runApp(
       MaterialApp(
@@ -86,12 +115,19 @@ class AppRoot extends ConsumerWidget {
   const AppRoot({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final router = ref.watch(appRouterProvider);
-    final themeMode = ref.watch(themeModeProvider);
+  Widget build(
+    BuildContext context,
+    WidgetRef ref,
+  ) {
+    final router =
+        ref.watch(appRouterProvider);
 
-    // Initializes connectivity monitoring globally.
-    ref.watch(connectivityServiceProvider);
+    final themeMode =
+        ref.watch(themeModeProvider);
+
+    ref.watch(
+      connectivityServiceProvider,
+    );
 
     return MaterialApp.router(
       title: 'AttendPay',
@@ -104,7 +140,8 @@ class AppRoot extends ConsumerWidget {
   }
 }
 
-class FatalStartupErrorScreen extends StatelessWidget {
+class FatalStartupErrorScreen
+    extends StatelessWidget {
   final String error;
 
   const FatalStartupErrorScreen({
@@ -113,37 +150,53 @@ class FatalStartupErrorScreen extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return Scaffold(
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding:
+              const EdgeInsets.all(24),
           child: Center(
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisAlignment:
+                  MainAxisAlignment.center,
               children: [
                 const Icon(
                   Icons.error_outline_rounded,
                   size: 80,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(
+                  height: 24,
+                ),
                 const Text(
                   'Application Startup Failed',
                   style: TextStyle(
                     fontSize: 22,
-                    fontWeight: FontWeight.w600,
+                    fontWeight:
+                        FontWeight.w600,
                   ),
-                  textAlign: TextAlign.center,
+                  textAlign:
+                      TextAlign.center,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(
+                  height: 12,
+                ),
                 Text(
                   error,
-                  textAlign: TextAlign.center,
+                  textAlign:
+                      TextAlign.center,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(
+                  height: 24,
+                ),
                 ElevatedButton(
-                  onPressed: SystemNavigator.pop,
-                  child: const Text('Close App'),
+                  onPressed:
+                      SystemNavigator.pop,
+                  child: const Text(
+                    'Close App',
+                  ),
                 ),
               ],
             ),
