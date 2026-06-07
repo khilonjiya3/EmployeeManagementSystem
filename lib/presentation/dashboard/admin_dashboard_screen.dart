@@ -250,7 +250,7 @@ class _DashboardBody extends StatelessWidget {
             crossAxisCount: 3,
             crossAxisSpacing: 8,
             mainAxisSpacing: 8,
-            childAspectRatio: 1.1,
+            childAspectRatio: 0.9,
             children: [
               w.StatCard(
                 title: 'Liability',
@@ -408,7 +408,7 @@ class SupervisorDashboardScreen extends ConsumerWidget {
                   crossAxisCount: 2,
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
-                  childAspectRatio: 1.5,
+                  childAspectRatio: 1.15,
                   children: [
                     w.StatCard(title: 'Employees', value: '${stats['total_employees']}', icon: Icons.people_outline, color: AppColors.primary500),
                     w.StatCard(title: 'Attendance Today', value: stats['today_submitted'] == true ? 'Submitted' : 'Pending', icon: Icons.calendar_today_outlined, color: stats['today_submitted'] == true ? AppColors.success500 : AppColors.accent500),
