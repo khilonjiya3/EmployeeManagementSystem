@@ -339,7 +339,9 @@ class SupervisorDashboardScreen extends ConsumerWidget {
                     w.StatCard(title: 'Employees', value: '${stats['total_employees']}', icon: Icons.people_outline, color: AppColors.primary500),
                     w.StatCard(title: 'Attendance Today', value: stats['today_submitted'] == true ? 'Submitted' : 'Pending', icon: Icons.calendar_today_outlined, color: stats['today_submitted'] == true ? AppColors.success500 : AppColors.accent500),
                     w.StatCard(title: 'Pending Expenses', value: '${stats['pending_expenses']}', icon: Icons.receipt_long_outlined, color: AppColors.accent500),
-                    w.StatCard(title: 'Total Expenses', value: '${stats['total_expenses']}', icon: Icons.account_balance_wallet_outlined, color: AppColors.secondary500),
+                    w.StatCard(title: 'Total Expenses', value: CurrencyUtils.formatCompact(
+  stats['total_expenses'] ?? 0,
+), icon: Icons.account_balance_wallet_outlined, color: AppColors.secondary500),
                   ],
                 ),
                 const SizedBox(height: 24),
@@ -379,7 +381,7 @@ class SupervisorDashboardScreen extends ConsumerWidget {
       'total_employees': 0,
       'today_submitted': false,
       'pending_expenses': 0,
-      'total_expenses': 0,
+      'total_expenses': 0.0,
     };
   }
 
@@ -396,7 +398,7 @@ class SupervisorDashboardScreen extends ConsumerWidget {
       'total_employees': 0,
       'today_submitted': false,
       'pending_expenses': 0,
-      'total_expenses': 0,
+      'total_expenses': 0.0,
     };
   }
 
@@ -407,7 +409,9 @@ class SupervisorDashboardScreen extends ConsumerWidget {
       .select('id')
       .eq('supervisor_id', supervisorId);
 
-  final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+  final today = DateFormat('yyyy-MM-dd').format(
+    DateTime.now(),
+  );
 
   final todayAtt = await client
       .from('attendance')
@@ -424,14 +428,28 @@ class SupervisorDashboardScreen extends ConsumerWidget {
 
   final totalExp = await client
       .from('expenses')
-      .select('id')
+      .select('amount')
       .eq('supervisor_id', supervisorId);
 
+  final totalExpenseAmount =
+      (totalExp as List).fold<double>(
+    0,
+    (sum, row) =>
+        sum +
+        ((row['amount'] as num?)
+                ?.toDouble() ??
+            0),
+  );
+
   return {
-    'total_employees': (employees as List).length,
-    'today_submitted': todayAtt != null,
-    'pending_expenses': (pendingExp as List).length,
-    'total_expenses': (totalExp as List).length,
+    'total_employees':
+        (employees as List).length,
+    'today_submitted':
+        todayAtt != null,
+    'pending_expenses':
+        (pendingExp as List).length,
+    'total_expenses':
+        totalExpenseAmount,
   };
 }
 }
