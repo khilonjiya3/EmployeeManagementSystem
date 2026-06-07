@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:photo_view/photo_view.dart';
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/app_constants.dart';
@@ -598,37 +600,90 @@ class ExpenseDetailScreen extends ConsumerWidget {
   }
 
   Widget _buildAttachments(BuildContext context, ExpenseModel exp) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Attachments', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 8),
-        ...exp.attachments!.map((att) => Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.secondary200),
-          ),
-          child: Row(
-            children: [
-              Icon(att.isPdf ? Icons.picture_as_pdf_rounded : Icons.image_outlined, color: AppColors.primary500, size: 20),
-              const SizedBox(width: 8),
-              Expanded(child: Text(att.fileName ?? 'Attachment', style: theme.textTheme.bodySmall, overflow: TextOverflow.ellipsis)),
-              if (att.isReceipt) Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(color: AppColors.success100, borderRadius: BorderRadius.circular(4)),
-                child: const Text('Receipt', style: TextStyle(color: AppColors.success700, fontSize: 10, fontFamily: 'Inter')),
-              ),
-            ],
-          ),
-        )),
-      ],
-    );
-  }
+  final theme = Theme.of(context);
 
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        'Attachments',
+        style: theme.textTheme.titleMedium,
+      ),
+      const SizedBox(height: 8),
+
+      ...exp.attachments!.map(
+        (att) => InkWell(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => AttachmentViewerScreen(
+                  fileUrl: att.fileUrl!,
+                  fileName: att.fileName ?? 'Attachment',
+                  isPdf: att.isPdf,
+                ),
+              ),
+            );
+          },
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AppColors.secondary200,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  att.isPdf
+                      ? Icons.picture_as_pdf_rounded
+                      : Icons.image_outlined,
+                  color: AppColors.primary500,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+
+                Expanded(
+                  child: Text(
+                    att.fileName ?? 'Attachment',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+
+                const Icon(
+                  Icons.visibility_rounded,
+                ),
+
+                if (att.isReceipt)
+                  Container(
+                    margin: const EdgeInsets.only(left: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.success100,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'Receipt',
+                      style: TextStyle(
+                        color: AppColors.success700,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ],
+  );
+}
   Widget _buildAdminRemarks(BuildContext context, ExpenseModel exp) {
     final theme = Theme.of(context);
     return Container(
@@ -749,6 +804,42 @@ class _Row extends StatelessWidget {
           Expanded(child: Text(value, style: Theme.of(context).textTheme.bodyMedium)),
         ],
       ),
+    );
+  }
+}
+
+
+class AttachmentViewerScreen extends StatelessWidget {
+  final String fileUrl;
+  final String fileName;
+  final bool isPdf;
+
+  const AttachmentViewerScreen({
+    super.key,
+    required this.fileUrl,
+    required this.fileName,
+    required this.isPdf,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(fileName),
+      ),
+      body: isPdf
+          ? SfPdfViewer.network(
+              fileUrl,
+            )
+          : PhotoView(
+              imageProvider: NetworkImage(
+                fileUrl,
+              ),
+              minScale:
+                  PhotoViewComputedScale.contained,
+              maxScale:
+                  PhotoViewComputedScale.covered * 4,
+            ),
     );
   }
 }
