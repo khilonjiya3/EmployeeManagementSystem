@@ -65,7 +65,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       if (isLoggedIn &&
     (state.matchedLocation == '/login' ||
-        state.matchedLocation == '/forgot-password')) {
+        state.matchedLocation == '/forgot-password' ||
+        state.matchedLocation == '/splash')) {
   return '/dashboard';
 }
 
