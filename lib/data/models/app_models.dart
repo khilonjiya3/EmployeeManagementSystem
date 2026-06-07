@@ -8,6 +8,7 @@ class ProfileModel extends Equatable {
   final String? mobile;
   final String? profilePhotoUrl;
   final bool isActive;
+  final bool mustChangePassword;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -19,39 +20,50 @@ class ProfileModel extends Equatable {
     this.mobile,
     this.profilePhotoUrl,
     required this.isActive,
+    required this.mustChangePassword,
     required this.createdAt,
     required this.updatedAt,
   });
 
   factory ProfileModel.fromJson(Map<String, dynamic> json) => ProfileModel(
-    id: json['id'] as String,
-    role: json['role'] as String,
-    employeeCode: json['employee_code'] as String?,
-    fullName: json['full_name'] as String,
-    mobile: json['mobile'] as String?,
-    profilePhotoUrl: json['profile_photo_url'] as String?,
-    isActive: json['is_active'] as bool? ?? true,
-    createdAt: DateTime.parse(json['created_at'] as String),
-    updatedAt: DateTime.parse(json['updated_at'] as String),
-  );
+        id: json['id'] as String,
+        role: json['role'] as String,
+        employeeCode: json['employee_code'] as String?,
+        fullName: json['full_name'] as String,
+        mobile: json['mobile'] as String?,
+        profilePhotoUrl: json['profile_photo_url'] as String?,
+        isActive: json['is_active'] as bool? ?? true,
+        mustChangePassword:
+            json['must_change_password'] as bool? ?? false,
+        createdAt: DateTime.parse(json['created_at'] as String),
+        updatedAt: DateTime.parse(json['updated_at'] as String),
+      );
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'role': role,
-    'employee_code': employeeCode,
-    'full_name': fullName,
-    'mobile': mobile,
-    'profile_photo_url': profilePhotoUrl,
-    'is_active': isActive,
-    'created_at': createdAt.toIso8601String(),
-    'updated_at': updatedAt.toIso8601String(),
-  };
+        'id': id,
+        'role': role,
+        'employee_code': employeeCode,
+        'full_name': fullName,
+        'mobile': mobile,
+        'profile_photo_url': profilePhotoUrl,
+        'is_active': isActive,
+        'must_change_password': mustChangePassword,
+        'created_at': createdAt.toIso8601String(),
+        'updated_at': updatedAt.toIso8601String(),
+      };
 
   bool get isAdmin => role == 'admin';
+
   bool get isSupervisor => role == 'supervisor';
 
   @override
-  List<Object?> get props => [id, role, fullName, isActive];
+  List<Object?> get props => [
+        id,
+        role,
+        fullName,
+        isActive,
+        mustChangePassword,
+      ];
 }
 
 class EmployeeModel extends Equatable {
