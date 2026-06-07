@@ -25,10 +25,11 @@ class StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: bgColor ?? theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(12),
@@ -37,26 +38,55 @@ class StatCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(icon, color: color, size: 20),
-                ),
-              ],
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                icon,
+                color: color,
+                size: 18,
+              ),
             ),
-            const SizedBox(height: 12),
-            Text(value, style: theme.textTheme.headlineLarge?.copyWith(color: color, letterSpacing: -0.5)),
+
+            const Spacer(),
+
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                value,
+                maxLines: 1,
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+
             const SizedBox(height: 4),
-            Text(title, style: theme.textTheme.bodySmall),
+
+            Text(
+              title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontSize: 11,
+              ),
+            ),
+
             if (subtitle != null) ...[
               const SizedBox(height: 2),
-              Text(subtitle!, style: theme.textTheme.labelSmall?.copyWith(color: color)),
+              Text(
+                subtitle!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: color,
+                ),
+              ),
             ],
           ],
         ),
@@ -64,7 +94,6 @@ class StatCard extends StatelessWidget {
     );
   }
 }
-
 class SectionHeader extends StatelessWidget {
   final String title;
   final String? actionLabel;
