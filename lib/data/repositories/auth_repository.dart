@@ -199,11 +199,12 @@ class EmployeeRepository {
   }
 
   Future<int> getCount({String? status}) async {
-    var query = _client.from('employees').select('id', const FetchOptions(count: CountOption.exact, head: true));
-    if (status != null) query = query.eq('status', status) as dynamic;
-    final res = await query;
-    return res.count ?? 0;
-  }
+  final data = status == null
+      ? await _client.from('employees').select('id')
+      : await _client.from('employees').select('id').eq('status', status);
+
+  return (data as List).length;
+}
 
   Future<void> _logAudit(String action, String entity, String entityId, dynamic old, dynamic newVal) async {
     final userId = _client.auth.currentUser?.id;
@@ -680,8 +681,14 @@ final dashboardStatsProvider = FutureProvider<Map<String, dynamic>>((ref) async 
   final now = DateTime.now();
 
   // Employee counts
-  final totalEmp = await client.from('employees').select('id', const FetchOptions(count: CountOption.exact, head: true));
-  final activeEmp = await client.from('employees').select('id', const FetchOptions(count: CountOption.exact, head: true)).eq('status', 'active');
+  // Employee counts
+final totalEmp =
+    await client.from('employees').select('id');
+
+final activeEmp =
+    await client.from('employees')
+        .select('id')
+        .eq('status', 'active');
 
   // Today attendance
   final todayAttendance = await ref.watch(attendanceRepositoryProvider).getTodaySummary();
@@ -693,8 +700,8 @@ final dashboardStatsProvider = FutureProvider<Map<String, dynamic>>((ref) async 
   final payrollSummary = await ref.watch(payrollRepositoryProvider).getMonthlySummary(now.month, now.year);
 
   return {
-    'total_employees': totalEmp.count ?? 0,
-    'active_employees': activeEmp.count ?? 0,
+  'total_employees': (totalEmp as List).length,
+  'active_employees': (activeEmp as List).length,
     'today_present': todayAttendance['present'] ?? 0,
     'today_absent': todayAttendance['absent'] ?? 0,
     'expense_pending': expenseSummary['pending'] ?? 0,
