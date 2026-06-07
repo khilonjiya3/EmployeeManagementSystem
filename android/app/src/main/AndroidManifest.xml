@@ -42,16 +42,6 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
-        <meta-data
-            android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="attend_pay_channel" />
-
-        <service
-            android:name="com.google.firebase.messaging.FirebaseMessagingService"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="com.google.firebase.MESSAGING_EVENT" />
-            </intent-filter>
-        </service>
+        
     </application>
 </manifest>
