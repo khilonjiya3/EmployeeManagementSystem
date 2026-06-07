@@ -15,6 +15,13 @@ final _employeeDetailProvider = FutureProvider.autoDispose.family<EmployeeModel?
   return ref.watch(employeeRepositoryProvider).getById(id);
 });
 
+final _supervisorsProvider =
+    FutureProvider.autoDispose<List<SupervisorModel>>((ref) async {
+  return ref
+      .read(supervisorRepositoryProvider)
+      .getAll(isActive: true);
+});
+
 final _departmentsProvider = FutureProvider.autoDispose<List<DepartmentModel>>((ref) async {
   final client = ref.watch(supabaseProvider);
   final data = await client.from('departments').select().eq('is_active', true).order('name');
@@ -40,6 +47,7 @@ class _EmployeeFormScreenState extends ConsumerState<EmployeeFormScreen> {
 
   DateTime _joiningDate = DateTime.now();
   String? _departmentId;
+  String? _supervisorId;
   String _status = 'active';
   File? _photoFile;
   String? _existingPhotoUrl;
@@ -56,22 +64,41 @@ class _EmployeeFormScreenState extends ConsumerState<EmployeeFormScreen> {
   }
 
   Future<void> _loadEmployee() async {
-    final employee = await ref.read(employeeRepositoryProvider).getById(widget.employeeId!);
-    if (employee == null || !mounted) return;
+  final employee =
+      await ref.read(employeeRepositoryProvider).getById(
+            widget.employeeId!,
+          );
 
-    _nameController.text = employee.name;
-    _mobileController.text = employee.mobile ?? '';
-    _addressController.text = employee.address ?? '';
-    _aadhaarController.text = employee.aadhaarNumber ?? '';
-    _designationController.text = employee.designation ?? '';
-    _wageController.text = employee.dailyWageRate.toString();
-    _joiningDate = employee.joiningDate;
-    _departmentId = employee.departmentId;
-    _status = employee.status;
-    _existingPhotoUrl = employee.employeePhotoUrl;
-    setState(() {});
-  }
+  if (employee == null || !mounted) return;
 
+  _nameController.text = employee.name;
+  _mobileController.text = employee.mobile ?? '';
+  _addressController.text = employee.address ?? '';
+  _aadhaarController.text = employee.aadhaarNumber ?? '';
+  _designationController.text =
+      employee.designation ?? '';
+  _wageController.text =
+      employee.dailyWageRate.toString();
+
+  _joiningDate = employee.joiningDate;
+  _departmentId = employee.departmentId;
+  _status = employee.status;
+  _existingPhotoUrl =
+      employee.employeePhotoUrl;
+
+  final client = ref.read(supabaseProvider);
+
+  final assignment = await client
+      .from('supervisor_employees')
+      .select('supervisor_id')
+      .eq('employee_id', employee.id)
+      .maybeSingle();
+
+  _supervisorId =
+      assignment?['supervisor_id'] as String?;
+
+  setState(() {});
+}
   @override
   void dispose() {
     _nameController.dispose();
@@ -104,6 +131,7 @@ class _EmployeeFormScreenState extends ConsumerState<EmployeeFormScreen> {
         'daily_wage_rate': double.parse(_wageController.text),
         'joining_date': DateFormat('yyyy-MM-dd').format(_joiningDate),
         'department_id': _departmentId,
+        'supervisor_id': _supervisorId,
         'status': _status,
       };
 
@@ -138,7 +166,11 @@ class _EmployeeFormScreenState extends ConsumerState<EmployeeFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final departments = ref.watch(_departmentsProvider);
+    final departments =
+    ref.watch(_departmentsProvider);
+
+final supervisors =
+    ref.watch(_supervisorsProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
