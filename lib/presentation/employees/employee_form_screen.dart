@@ -131,6 +131,7 @@ class _EmployeeFormScreenState extends ConsumerState<EmployeeFormScreen> {
         'daily_wage_rate': double.parse(_wageController.text),
         'joining_date': DateFormat('yyyy-MM-dd').format(_joiningDate),
         'department_id': _departmentId,
+        'supervisor_id': _supervisorId,
         'status': _status,
       };
 
