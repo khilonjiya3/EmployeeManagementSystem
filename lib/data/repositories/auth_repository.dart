@@ -186,19 +186,34 @@ class EmployeeRepository {
   }
 
   Future<EmployeeModel> create(Map<String, dynamic> data) async {
-    final code = await _client.rpc('generate_employee_code') as String;
-    data['employee_code'] = code;
-    data['created_by'] = _client.auth.currentUser?.id;
+  final code = await _client.rpc('generate_employee_code') as String;
 
-    final result = await _client
-        .from('employees')
-        .insert(data)
-        .select('*, departments(name)')
-        .single();
+  data['employee_code'] = code;
+  data['created_by'] = _client.auth.currentUser?.id;
 
-    await _logAudit('employee_created', 'employees', result['id'] as String, null, result);
-    return EmployeeModel.fromJson(result);
+  final result = await _client
+      .from('employees')
+      .insert(data)
+      .select('*, departments(name)')
+      .single();
+
+  if (data['supervisor_id'] != null) {
+    await _client.from('supervisor_employees').insert({
+      'supervisor_id': data['supervisor_id'],
+      'employee_id': result['id'],
+    });
   }
+
+  await _logAudit(
+    'employee_created',
+    'employees',
+    result['id'] as String,
+    null,
+    result,
+  );
+
+  return EmployeeModel.fromJson(result);
+}
 
   Future<EmployeeModel> update(String id, Map<String, dynamic> data) async {
     final result = await _client
