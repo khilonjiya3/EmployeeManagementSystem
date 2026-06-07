@@ -136,8 +136,15 @@ class _SupervisorCard extends StatelessWidget {
               backgroundColor: AppColors.accent100,
               backgroundImage: supervisor.profilePhotoUrl != null ? NetworkImage(supervisor.profilePhotoUrl!) : null,
               child: supervisor.profilePhotoUrl == null
-                  ? Text(supervisor.name[0].toUpperCase(), style: const TextStyle(color: AppColors.accent700, fontWeight: FontWeight.w700, fontFamily: 'Inter'))
-                  : null,
+    ? Text(
+        supervisor.name[0].toUpperCase(),
+        style: const TextStyle(
+          color: AppColors.accent600,
+          fontWeight: FontWeight.w700,
+          fontFamily: 'Inter',
+        ),
+      )
+    : null,
             ),
             const SizedBox(width: 12),
             Expanded(
