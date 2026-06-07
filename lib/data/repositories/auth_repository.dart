@@ -94,12 +94,15 @@ class AuthRepository {
   }
 
   Future<void> signOut() async {
-    try {
-      await _client.auth.signOut();
-    } on AuthException catch (e) {
-      throw app_errors.AuthException(e.message);
-    }
+  try {
+    await _client.auth.signOut();
+
+    print('LOGOUT SUCCESS');
+    print(_client.auth.currentSession);
+  } on AuthException catch (e) {
+    throw app_errors.AuthException(e.message);
   }
+}
 
   User? get currentUser => _client.auth.currentUser;
   Session? get currentSession => _client.auth.currentSession;
