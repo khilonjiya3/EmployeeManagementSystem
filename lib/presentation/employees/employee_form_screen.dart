@@ -131,7 +131,6 @@ class _EmployeeFormScreenState extends ConsumerState<EmployeeFormScreen> {
         'daily_wage_rate': double.parse(_wageController.text),
         'joining_date': DateFormat('yyyy-MM-dd').format(_joiningDate),
         'department_id': _departmentId,
-        'supervisor_id': _supervisorId,
         'status': _status,
       };
 
@@ -236,6 +235,35 @@ final supervisors =
                   ),
                 ),
                 const SizedBox(height: 16),
+
+supervisors.when(
+  loading: () => const LinearProgressIndicator(),
+  error: (_, __) => const SizedBox.shrink(),
+  data: (list) => DropdownButtonFormField<String>(
+    value: _supervisorId,
+    decoration: const InputDecoration(
+      labelText: 'Supervisor',
+      prefixIcon: Icon(Icons.supervisor_account_outlined),
+    ),
+    items: list
+        .map(
+          (s) => DropdownMenuItem<String>(
+            value: s.id,
+            child: Text(
+              '${s.name} (${s.supervisorCode})',
+            ),
+          ),
+        )
+        .toList(),
+    onChanged: (value) {
+      setState(() {
+        _supervisorId = value;
+      });
+    },
+  ),
+),
+
+const SizedBox(height: 16),
                 TextFormField(
                   controller: _designationController,
                   decoration: const InputDecoration(labelText: 'Designation', prefixIcon: Icon(Icons.work_outline)),
