@@ -133,18 +133,26 @@ class EmployeeRepository {
     int page = 0,
     int limit = 20,
   }) async {
-    var query = _client
+    // Build a filter builder first, apply all filters, then add ordering and pagination.
+    // In postgrest 2.7.x, filter methods (eq, or, gte, lte) are only available on
+    // PostgrestFilterBuilder. Once .order() or .range() is called, the builder becomes
+    // a PostgrestTransformBuilder which no longer exposes those methods.
+    var filterQuery = _client
         .from('employees')
-        .select('*, departments(name)')
-        .range(page * limit, (page + 1) * limit - 1)
-        .order('name');
+        .select('*, departments(name)');
 
-    if (status != null) query = query.eq('status', status) as dynamic;
-    if (search != null && search.isNotEmpty) {
-      query = query.or('name.ilike.%$search%,employee_code.ilike.%$search%') as dynamic;
+    if (status != null) {
+      filterQuery = filterQuery.eq('status', status);
     }
 
-    final data = await query;
+    if (search != null && search.isNotEmpty) {
+      filterQuery = filterQuery.or('name.ilike.%$search%,employee_code.ilike.%$search%');
+    }
+
+    final data = await filterQuery
+        .order('name')
+        .range(page * limit, (page + 1) * limit - 1);
+
     return (data as List).map((e) => EmployeeModel.fromJson(e as Map<String, dynamic>)).toList();
   }
 
@@ -199,12 +207,12 @@ class EmployeeRepository {
   }
 
   Future<int> getCount({String? status}) async {
-  final data = status == null
-      ? await _client.from('employees').select('id')
-      : await _client.from('employees').select('id').eq('status', status);
+    final data = status == null
+        ? await _client.from('employees').select('id')
+        : await _client.from('employees').select('id').eq('status', status);
 
-  return (data as List).length;
-}
+    return (data as List).length;
+  }
 
   Future<void> _logAudit(String action, String entity, String entityId, dynamic old, dynamic newVal) async {
     final userId = _client.auth.currentUser?.id;
@@ -232,12 +240,20 @@ class SupervisorRepository {
   SupervisorRepository(this._client);
 
   Future<List<SupervisorModel>> getAll({String? search, bool? isActive}) async {
-    var query = _client.from('supervisors').select().order('name');
-    if (isActive != null) query = query.eq('is_active', isActive) as dynamic;
-    if (search != null && search.isNotEmpty) {
-      query = query.or('name.ilike.%$search%,supervisor_code.ilike.%$search%,email.ilike.%$search%') as dynamic;
+    // Apply all filters on the PostgrestFilterBuilder before calling .order(),
+    // which would promote the builder to PostgrestTransformBuilder.
+    var filterQuery = _client.from('supervisors').select();
+
+    if (isActive != null) {
+      filterQuery = filterQuery.eq('is_active', isActive);
     }
-    final data = await query;
+
+    if (search != null && search.isNotEmpty) {
+      filterQuery = filterQuery.or('name.ilike.%$search%,supervisor_code.ilike.%$search%,email.ilike.%$search%');
+    }
+
+    final data = await filterQuery.order('name');
+
     return (data as List).map((s) => SupervisorModel.fromJson(s as Map<String, dynamic>)).toList();
   }
 
@@ -324,17 +340,28 @@ class AttendanceRepository {
     int page = 0,
     int limit = 20,
   }) async {
-    var query = _client
+    // All filter methods (eq, gte, lte) must be called on the PostgrestFilterBuilder
+    // returned by .select(), before any transform methods (.order(), .range()).
+    var filterQuery = _client
         .from('attendance')
-        .select('*, supervisors(name), attendance_details(*, employees(name, employee_code))')
+        .select('*, supervisors(name), attendance_details(*, employees(name, employee_code))');
+
+    if (supervisorId != null) {
+      filterQuery = filterQuery.eq('supervisor_id', supervisorId);
+    }
+
+    if (fromDate != null) {
+      filterQuery = filterQuery.gte('attendance_date', fromDate.toIso8601String().split('T').first);
+    }
+
+    if (toDate != null) {
+      filterQuery = filterQuery.lte('attendance_date', toDate.toIso8601String().split('T').first);
+    }
+
+    final data = await filterQuery
         .order('attendance_date', ascending: false)
         .range(page * limit, (page + 1) * limit - 1);
 
-    if (supervisorId != null) query = query.eq('supervisor_id', supervisorId) as dynamic;
-    if (fromDate != null) query = query.gte('attendance_date', fromDate.toIso8601String().split('T').first) as dynamic;
-    if (toDate != null) query = query.lte('attendance_date', toDate.toIso8601String().split('T').first) as dynamic;
-
-    final data = await query;
     return (data as List).map((a) => AttendanceModel.fromJson(a as Map<String, dynamic>)).toList();
   }
 
@@ -451,19 +478,37 @@ class ExpenseRepository {
     int page = 0,
     int limit = 20,
   }) async {
-    var query = _client
+    // All filter methods must be chained on the PostgrestFilterBuilder (from .select())
+    // before any transform calls (.order(), .range()), which return a
+    // PostgrestTransformBuilder that no longer exposes filter methods.
+    var filterQuery = _client
         .from('expenses')
-        .select('*, supervisors(name), expense_attachments(*)')
+        .select('*, supervisors(name), expense_attachments(*)');
+
+    if (supervisorId != null) {
+      filterQuery = filterQuery.eq('supervisor_id', supervisorId);
+    }
+
+    if (status != null) {
+      filterQuery = filterQuery.eq('status', status);
+    }
+
+    if (category != null) {
+      filterQuery = filterQuery.eq('category', category);
+    }
+
+    if (fromDate != null) {
+      filterQuery = filterQuery.gte('expense_date', fromDate.toIso8601String().split('T').first);
+    }
+
+    if (toDate != null) {
+      filterQuery = filterQuery.lte('expense_date', toDate.toIso8601String().split('T').first);
+    }
+
+    final data = await filterQuery
         .order('created_at', ascending: false)
         .range(page * limit, (page + 1) * limit - 1);
 
-    if (supervisorId != null) query = query.eq('supervisor_id', supervisorId) as dynamic;
-    if (status != null) query = query.eq('status', status) as dynamic;
-    if (category != null) query = query.eq('category', category) as dynamic;
-    if (fromDate != null) query = query.gte('expense_date', fromDate.toIso8601String().split('T').first) as dynamic;
-    if (toDate != null) query = query.lte('expense_date', toDate.toIso8601String().split('T').first) as dynamic;
-
-    final data = await query;
     return (data as List).map((e) => ExpenseModel.fromJson(e as Map<String, dynamic>)).toList();
   }
 
@@ -681,14 +726,13 @@ final dashboardStatsProvider = FutureProvider<Map<String, dynamic>>((ref) async 
   final now = DateTime.now();
 
   // Employee counts
-  // Employee counts
-final totalEmp =
-    await client.from('employees').select('id');
+  final totalEmp =
+      await client.from('employees').select('id');
 
-final activeEmp =
-    await client.from('employees')
-        .select('id')
-        .eq('status', 'active');
+  final activeEmp =
+      await client.from('employees')
+          .select('id')
+          .eq('status', 'active');
 
   // Today attendance
   final todayAttendance = await ref.watch(attendanceRepositoryProvider).getTodaySummary();
@@ -700,8 +744,8 @@ final activeEmp =
   final payrollSummary = await ref.watch(payrollRepositoryProvider).getMonthlySummary(now.month, now.year);
 
   return {
-  'total_employees': (totalEmp as List).length,
-  'active_employees': (activeEmp as List).length,
+    'total_employees': (totalEmp as List).length,
+    'active_employees': (activeEmp as List).length,
     'today_present': todayAttendance['present'] ?? 0,
     'today_absent': todayAttendance['absent'] ?? 0,
     'expense_pending': expenseSummary['pending'] ?? 0,
