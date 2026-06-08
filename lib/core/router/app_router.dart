@@ -104,8 +104,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: '/dashboard',
             builder: (context, state) {
               final profile =
-    ref.read(currentProfileProvider);
-
+    ref.watch(currentProfileProvider);
               return profile.when(
                 loading: () => const Scaffold(
                   body: Center(
