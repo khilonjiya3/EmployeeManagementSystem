@@ -45,28 +45,41 @@ class _LoginScreenState extends ConsumerState<LoginScreen> with TickerProviderSt
   }
 
   Future<void> _handleLogin() async {
-    if (!_formKey.currentState!.validate()) return;
+  if (!_formKey.currentState!.validate()) return;
 
-    ref.read(loginLoadingProvider.notifier).state = true;
-    ref.read(loginErrorProvider.notifier).state = null;
+  ref.read(loginLoadingProvider.notifier).state = true;
+  ref.read(loginErrorProvider.notifier).state = null;
 
-    try {
-      final auth = ref.read(authRepositoryProvider);
-      final tab = ref.read(loginTabProvider);
+  try {
+    final auth = ref.read(authRepositoryProvider);
+    final tab = ref.read(loginTabProvider);
 
-      if (tab == 0) {
-        await auth.signInWithEmail(_emailController.text.trim(), _passwordController.text);
-      } else {
-        await auth.signInWithEmployeeId(_idController.text.trim(), _passwordController.text);
-      }
-
-      if (mounted) context.go('/dashboard');
-    } catch (e) {
-      ref.read(loginErrorProvider.notifier).state = e.toString().replaceAll('AuthException: ', '');
-    } finally {
-      ref.read(loginLoadingProvider.notifier).state = false;
+    if (tab == 0) {
+      await auth.signInWithEmail(
+        _emailController.text.trim(),
+        _passwordController.text,
+      );
+    } else {
+      await auth.signInWithEmployeeId(
+        _idController.text.trim(),
+        _passwordController.text,
+      );
     }
+
+    // Force reload profile after login
+    ref.invalidate(currentProfileProvider);
+    await ref.refresh(currentProfileProvider.future);
+
+    if (mounted) {
+      context.go('/dashboard');
+    }
+  } catch (e) {
+    ref.read(loginErrorProvider.notifier).state =
+        e.toString().replaceAll('AuthException: ', '');
+  } finally {
+    ref.read(loginLoadingProvider.notifier).state = false;
   }
+}
 
   @override
   Widget build(BuildContext context) {
