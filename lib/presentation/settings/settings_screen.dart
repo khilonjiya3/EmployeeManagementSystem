@@ -330,17 +330,56 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     if (confirm == true) {
   try {
-    await ref.read(authRepositoryProvider).signOut();
+    final auth = ref.read(authRepositoryProvider);
 
-    ref.invalidate(currentProfileProvider);
+    final beforeSession =
+        auth.currentSession?.accessToken != null;
+
+    await auth.signOut();
+
+    final afterSession =
+        auth.currentSession?.accessToken != null;
+
+    final afterUser =
+        auth.currentUser != null;
 
     if (mounted) {
-      context.go('/login');
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Logout Debug'),
+          content: Text(
+            '''
+Before Session: $beforeSession
+
+After Session: $afterSession
+
+After User: $afterUser
+''',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
     }
   } catch (e) {
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Logout Error: $e')),
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Logout Error'),
+          content: Text(e.toString()),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
       );
     }
   }
