@@ -315,17 +315,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _confirmSignOut(BuildContext context) async {
-  try {
-    await Supabase.instance.client.auth.signOut();
+  await ref.read(authRepositoryProvider).signOut();
 
-    if (!mounted) return;
+  ref.invalidate(currentProfileProvider);
 
-    Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst);
+  if (!mounted) return;
 
-    context.go('/login');
-  } catch (e) {
-    debugPrint('LOGOUT ERROR: $e');
-  }
+  context.go('/login');
 }
 }
 
