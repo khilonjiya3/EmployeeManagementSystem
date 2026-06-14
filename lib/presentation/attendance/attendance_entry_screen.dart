@@ -746,7 +746,7 @@ class AttendanceMapScreen extends ConsumerWidget {
                             const SizedBox(height: 8),
                             Text(att.submittedAddress ?? '', style: Theme.of(context).textTheme.bodySmall, textAlign: TextAlign.center),
                             const SizedBox(height: 16),
-                            const Text('Integrate Google Maps Flutter plugin\nfor full map view', style: TextStyle(color: AppColors.secondary400, fontSize: 12), textAlign: TextAlign.center),
+                            const Text('Google Maps\n', style: TextStyle(color: AppColors.secondary400, fontSize: 12), textAlign: TextAlign.center),
                           ],
                         ),
                       )
