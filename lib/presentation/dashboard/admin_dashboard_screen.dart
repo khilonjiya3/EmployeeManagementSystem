@@ -29,11 +29,6 @@ class AdminDashboardScreen extends ConsumerWidget {
             surfaceTintColor: Colors.transparent,
             flexibleSpace: FlexibleSpaceBar(
               title: null,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontFamily: 'Inter',
-                ),
-              ),
               background: Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
