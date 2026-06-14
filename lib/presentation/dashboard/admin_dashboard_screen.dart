@@ -517,23 +517,20 @@ void dispose() {
                             : AppColors.accent500,
                       ),
                       w.StatCard(
-                        title: 'Pending Expenses',
-                        value:
-                            '${stats['pending_expenses']}',
-                        icon:
-                            Icons.receipt_long_outlined,
-                        color: AppColors.accent500,
-                      ),
-                      w.StatCard(
-                        title: 'Total Expenses',
-                        value: CurrencyUtils
-                            .formatCompact(
-                          stats['total_expenses'] ?? 0,
-                        ),
-                        icon:
-                            Icons.account_balance_wallet_outlined,
-                        color: AppColors.secondary500,
-                      ),
+  title: 'Pending Expenses',
+  value: '${stats['pending_today']}',
+  subtitle: 'Today',
+  icon: Icons.receipt_long_outlined,
+  color: AppColors.accent500,
+),
+
+w.StatCard(
+  title: 'Approved Expenses',
+  value: '${stats['approved_today']}',
+  subtitle: 'Today',
+  icon: Icons.check_circle_outline,
+  color: AppColors.success500,
+),
                     ],
                   ),
 
@@ -582,78 +579,71 @@ void dispose() {
   }
 
   Future<Map<String, dynamic>> _loadSupervisorStats(
-    WidgetRef ref,
-    String? profileId,
-  ) async {
-    if (profileId == null) {
-      return {
-        'total_employees': 0,
-        'today_submitted': false,
-        'pending_expenses': 0,
-        'total_expenses': 0.0,
-      };
-    }
-
-    final client = ref.read(supabaseProvider);
-
-    final sup = await client
-        .from('supervisors')
-        .select('id')
-        .eq('profile_id', profileId)
-        .maybeSingle();
-
-    if (sup == null) {
-      return {
-        'total_employees': 0,
-        'today_submitted': false,
-        'pending_expenses': 0,
-        'total_expenses': 0.0,
-      };
-    }
-
-    final supervisorId = sup['id'] as String;
-
-    final employees = await client
-        .from('supervisor_employees')
-        .select('id')
-        .eq('supervisor_id', supervisorId);
-
-    final today =
-        DateFormat('yyyy-MM-dd').format(DateTime.now());
-
-    final todayAtt = await client
-        .from('attendance')
-        .select('id')
-        .eq('supervisor_id', supervisorId)
-        .eq('attendance_date', today)
-        .maybeSingle();
-
-    final pendingExp = await client
-        .from('expenses')
-        .select('id')
-        .eq('supervisor_id', supervisorId)
-        .eq('status', 'pending');
-
-    final totalExp = await client
-        .from('expenses')
-        .select('amount')
-        .eq('supervisor_id', supervisorId);
-
-    final totalExpenseAmount =
-        (totalExp as List).fold<double>(
-      0,
-      (sum, row) =>
-          sum +
-          ((row['amount'] as num?)?.toDouble() ?? 0),
-    );
-
+  WidgetRef ref,
+  String? profileId,
+) async {
+  if (profileId == null) {
     return {
-      'total_employees':
-          (employees as List).length,
-      'today_submitted': todayAtt != null,
-      'pending_expenses':
-          (pendingExp as List).length,
-      'total_expenses': totalExpenseAmount,
+      'total_employees': 0,
+      'today_submitted': false,
+      'pending_today': 0,
+      'approved_today': 0,
     };
   }
+
+  final client = ref.read(supabaseProvider);
+
+  final sup = await client
+      .from('supervisors')
+      .select('id')
+      .eq('profile_id', profileId)
+      .maybeSingle();
+
+  if (sup == null) {
+    return {
+      'total_employees': 0,
+      'today_submitted': false,
+      'pending_today': 0,
+      'approved_today': 0,
+    };
+  }
+
+  final supervisorId = sup['id'] as String;
+
+  final employees = await client
+      .from('supervisor_employees')
+      .select('id')
+      .eq('supervisor_id', supervisorId);
+
+  final today =
+      DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+  final todayAtt = await client
+      .from('attendance')
+      .select('id')
+      .eq('supervisor_id', supervisorId)
+      .eq('attendance_date', today)
+      .maybeSingle();
+
+  final pendingToday = await client
+      .from('expenses')
+      .select('id')
+      .eq('supervisor_id', supervisorId)
+      .eq('expense_date', today)
+      .eq('status', 'pending');
+
+  final approvedToday = await client
+      .from('expenses')
+      .select('id')
+      .eq('supervisor_id', supervisorId)
+      .eq('expense_date', today)
+      .eq('status', 'approved');
+
+  return {
+    'total_employees': (employees as List).length,
+    'today_submitted': todayAtt != null,
+    'pending_today': (pendingToday as List).length,
+    'approved_today': (approvedToday as List).length,
+  };
+}
 }
