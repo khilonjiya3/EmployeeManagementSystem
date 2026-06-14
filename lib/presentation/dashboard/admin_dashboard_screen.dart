@@ -151,13 +151,43 @@ class AdminDashboardScreen extends ConsumerWidget {
                       CircularProgressIndicator(),
                 ),
               ),
-              error: (e, _) => Padding(
-                padding:
-                    const EdgeInsets.all(16),
-                child: Text(
-                  'Error loading stats: $e',
-                ),
-              ),
+              error: (e, stack) => Padding(
+  padding: const EdgeInsets.all(16),
+  child: Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.red.shade50,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: Colors.red.shade200),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Dashboard Error:',
+          style: TextStyle(
+            color: Colors.red,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          e.toString(),
+          style: const TextStyle(color: Colors.red),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          stack.toString().substring(0, 500),
+          style: const TextStyle(
+            color: Colors.red,
+            fontSize: 11,
+          ),
+        ),
+      ],
+    ),
+  ),
+),
               data: (data) =>
                   _DashboardBody(stats: data),
             ),
