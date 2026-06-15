@@ -422,7 +422,7 @@ class _SupervisorFormScreenState
                         child: Text(
                           'Default password: Abcd@123\nSupervisor will be prompted to change on first login.',
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.accent700),
+                              color: AppColors.accent600),
                         ),
                       ),
                     ],
