@@ -7,11 +7,13 @@ import '../../data/models/app_models.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../shared/widgets.dart' as w;
 
-final employeesProvider = StateNotifierProvider.autoDispose<EmployeesNotifier, AsyncValue<List<EmployeeModel>>>((ref) {
+final employeesProvider = StateNotifierProvider.autoDispose<EmployeesNotifier,
+    AsyncValue<List<EmployeeModel>>>((ref) {
   return EmployeesNotifier(ref.watch(employeeRepositoryProvider));
 });
 
-class EmployeesNotifier extends StateNotifier<AsyncValue<List<EmployeeModel>>> {
+class EmployeesNotifier
+    extends StateNotifier<AsyncValue<List<EmployeeModel>>> {
   final EmployeeRepository _repo;
   String _search = '';
   String? _status;
@@ -32,7 +34,8 @@ class EmployeesNotifier extends StateNotifier<AsyncValue<List<EmployeeModel>>> {
     if (!_hasMore) return;
 
     try {
-      final data = await _repo.getAll(search: _search, status: _status, page: _page);
+      final data = await _repo.getAll(
+          search: _search, status: _status, page: _page);
       _items.addAll(data);
       _hasMore = data.length == 20;
       _page++;
@@ -59,7 +62,8 @@ class EmployeesListScreen extends ConsumerStatefulWidget {
   const EmployeesListScreen({super.key});
 
   @override
-  ConsumerState<EmployeesListScreen> createState() => _EmployeesListScreenState();
+  ConsumerState<EmployeesListScreen> createState() =>
+      _EmployeesListScreenState();
 }
 
 class _EmployeesListScreenState extends ConsumerState<EmployeesListScreen> {
@@ -71,7 +75,8 @@ class _EmployeesListScreenState extends ConsumerState<EmployeesListScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(() {
-      if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      if (_scrollController.position.pixels >=
+          _scrollController.position.maxScrollExtent - 200) {
         ref.read(employeesProvider.notifier).load();
       }
     });
@@ -87,7 +92,6 @@ class _EmployeesListScreenState extends ConsumerState<EmployeesListScreen> {
   @override
   Widget build(BuildContext context) {
     final employees = ref.watch(employeesProvider);
-    final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -110,7 +114,8 @@ class _EmployeesListScreenState extends ConsumerState<EmployeesListScreen> {
             child: w.SearchBar(
               controller: _searchController,
               hint: 'Search employees...',
-              onChanged: (v) => ref.read(employeesProvider.notifier).search(v),
+              onChanged: (v) =>
+                  ref.read(employeesProvider.notifier).search(v),
               onClear: () {
                 _searchController.clear();
                 ref.read(employeesProvider.notifier).search('');
@@ -122,13 +127,27 @@ class _EmployeesListScreenState extends ConsumerState<EmployeesListScreen> {
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: Row(
                 children: [
-                  Chip(
-                    label: Text('Status: ${_selectedStatus!}'),
-                    deleteIcon: const Icon(Icons.close_rounded, size: 16),
+                  FilterChip(
+                    label: Text(
+                      'Status: $_selectedStatus',
+                      style: const TextStyle(
+                        color: AppColors.primary700,
+                        fontFamily: 'Inter',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    backgroundColor: AppColors.primary50,
+                    selectedColor: AppColors.primary100,
+                    selected: true,
+                    deleteIconColor: AppColors.primary600,
                     onDeleted: () {
                       setState(() => _selectedStatus = null);
-                      ref.read(employeesProvider.notifier).filterStatus(null);
+                      ref
+                          .read(employeesProvider.notifier)
+                          .filterStatus(null);
                     },
+                    onSelected: (_) {},
                   ),
                 ],
               ),
@@ -146,15 +165,18 @@ class _EmployeesListScreenState extends ConsumerState<EmployeesListScreen> {
                       onAction: () => context.push('/employees/new'),
                     )
                   : RefreshIndicator(
-                      onRefresh: () async => ref.read(employeesProvider.notifier).refresh(),
+                      onRefresh: () async =>
+                          ref.read(employeesProvider.notifier).refresh(),
                       child: ListView.separated(
                         controller: _scrollController,
                         padding: const EdgeInsets.all(16),
                         itemCount: list.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        separatorBuilder: (_, __) =>
+                            const SizedBox(height: 8),
                         itemBuilder: (context, i) => _EmployeeCard(
                           employee: list[i],
-                          onTap: () => context.push('/employees/${list[i].id}'),
+                          onTap: () =>
+                              context.push('/employees/${list[i].id}'),
                         ),
                       ),
                     ),
@@ -173,29 +195,64 @@ class _EmployeesListScreenState extends ConsumerState<EmployeesListScreen> {
   void _showFilterSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Filter Employees', style: Theme.of(context).textTheme.titleLarge),
+            Text('Filter Employees',
+                style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 16),
             Text('Status', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
-              children: ['active', 'inactive'].map((s) => FilterChip(
-                label: Text(s),
-                selected: _selectedStatus == s,
-                onSelected: (v) {
-                  Navigator.pop(context);
-                  setState(() => _selectedStatus = v ? s : null);
-                  ref.read(employeesProvider.notifier).filterStatus(v ? s : null);
-                },
-              )).toList(),
+              children: ['active', 'inactive'].map((s) {
+                final isSelected = _selectedStatus == s;
+                return FilterChip(
+                  label: Text(
+                    s,
+                    style: TextStyle(
+                      color: isSelected
+                          ? AppColors.primary700
+                          : AppColors.secondary600,
+                      fontFamily: 'Inter',
+                      fontSize: 13,
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.w400,
+                    ),
+                  ),
+                  selected: isSelected,
+                  selectedColor: AppColors.primary100,
+                  backgroundColor: AppColors.secondary100,
+                  checkmarkColor: AppColors.primary600,
+                  onSelected: (v) {
+                    Navigator.pop(context);
+                    setState(() => _selectedStatus = v ? s : null);
+                    ref
+                        .read(employeesProvider.notifier)
+                        .filterStatus(v ? s : null);
+                  },
+                );
+              }).toList(),
             ),
+            const SizedBox(height: 16),
+            if (_selectedStatus != null)
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  setState(() => _selectedStatus = null);
+                  ref
+                      .read(employeesProvider.notifier)
+                      .filterStatus(null);
+                },
+                child: const Text('Clear Filter',
+                    style: TextStyle(color: AppColors.error500)),
+              ),
           ],
         ),
       ),
@@ -221,7 +278,6 @@ class _EmployeesListScreenState extends ConsumerState<EmployeesListScreen> {
 class _EmployeeCard extends StatelessWidget {
   final EmployeeModel employee;
   final VoidCallback onTap;
-
   const _EmployeeCard({required this.employee, required this.onTap});
 
   @override
@@ -245,12 +301,18 @@ class _EmployeeCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(employee.name, style: theme.textTheme.titleMedium, overflow: TextOverflow.ellipsis),
+                  Text(employee.name,
+                      style: theme.textTheme.titleMedium,
+                      overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 2),
-                  Text(employee.employeeCode, style: theme.textTheme.bodySmall?.copyWith(color: AppColors.primary500)),
+                  Text(employee.employeeCode,
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: AppColors.primary500)),
                   if (employee.designation != null) ...[
                     const SizedBox(height: 2),
-                    Text(employee.designation!, style: theme.textTheme.bodySmall, overflow: TextOverflow.ellipsis),
+                    Text(employee.designation!,
+                        style: theme.textTheme.bodySmall,
+                        overflow: TextOverflow.ellipsis),
                   ],
                 ],
               ),
@@ -261,7 +323,8 @@ class _EmployeeCard extends StatelessWidget {
               children: [
                 w.StatusBadge(status: employee.status),
                 const SizedBox(height: 4),
-                Text('₹${employee.dailyWageRate.toStringAsFixed(0)}/day', style: theme.textTheme.labelSmall),
+                Text('₹${employee.dailyWageRate.toStringAsFixed(0)}/day',
+                    style: theme.textTheme.labelSmall),
               ],
             ),
           ],
@@ -273,16 +336,18 @@ class _EmployeeCard extends StatelessWidget {
   Widget _buildAvatar() {
     if (employee.employeePhotoUrl != null) {
       return CircleAvatar(
-        radius: 24,
-        backgroundImage: NetworkImage(employee.employeePhotoUrl!),
-      );
+          radius: 24,
+          backgroundImage: NetworkImage(employee.employeePhotoUrl!));
     }
     return CircleAvatar(
       radius: 24,
       backgroundColor: AppColors.primary100,
       child: Text(
         employee.name.isNotEmpty ? employee.name[0].toUpperCase() : '?',
-        style: const TextStyle(color: AppColors.primary600, fontWeight: FontWeight.w700, fontFamily: 'Inter'),
+        style: const TextStyle(
+            color: AppColors.primary600,
+            fontWeight: FontWeight.w700,
+            fontFamily: 'Inter'),
       ),
     );
   }
