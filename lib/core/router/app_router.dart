@@ -6,8 +6,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/repositories/auth_repository.dart';
 
-import '../../presentation/startup/splash_screen.dart';
-
 import '../../presentation/auth/login_screen.dart';
 import '../../presentation/auth/forgot_password_screen.dart';
 
@@ -45,13 +43,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
   return GoRouter(
     refreshListenable: GoRouterRefreshStream(authStream),
-    initialLocation: '/splash',
+    initialLocation: '/login',
 
     redirect: (context, state) {
       final session = ref.read(authRepositoryProvider).currentSession;
       final isLoggedIn = session != null;
-
-      if (state.matchedLocation == '/splash') return null;
 
       final isPublicRoute = [
         '/login',
@@ -65,11 +61,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     },
 
     routes: [
-      GoRoute(
-        name: 'splash',
-        path: '/splash',
-        builder: (_, __) => const SplashScreen(),
-      ),
       GoRoute(
         name: 'login',
         path: '/login',
