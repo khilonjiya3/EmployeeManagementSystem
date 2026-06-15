@@ -20,7 +20,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-
   bool _obscurePassword = true;
 
   @override
@@ -38,19 +37,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     try {
       final auth = ref.read(authRepositoryProvider);
+      final email = '${_emailController.text.trim().toUpperCase()}@ems.com';
 
-      final email =
-          '${_emailController.text.trim().toUpperCase()}@ems.com';
-
-      await auth.signInWithEmail(
-        email,
-        _passwordController.text,
-      );
+      await auth.signInWithEmail(email, _passwordController.text);
 
       ref.invalidate(currentProfileProvider);
-      await ref.refresh(currentProfileProvider.future);
+      final profile = await ref.refresh(currentProfileProvider.future);
 
-      if (mounted) {
+      if (!mounted) return;
+
+      if (profile?.mustChangePassword == true) {
+        context.go('/change-password');
+      } else {
         context.go('/dashboard');
       }
     } catch (e) {
@@ -93,14 +91,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget _buildHeader(ThemeData theme) {
     return Column(
       children: [
-        Image.asset(
-          'assets/images/logo.png',
-          width: 100,
-          height: 100,
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stack) => const Icon(
-            Icons.business_center_rounded,
-            size: 100,
+        ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: Image.asset(
+            'assets/images/logo.png',
+            width: 200,
+            height: 200,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stack) => Container(
+              width: 200,
+              height: 200,
+              decoration: BoxDecoration(
+                color: AppColors.primary100,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: const Icon(
+                Icons.business_center_rounded,
+                size: 80,
+                color: AppColors.primary500,
+              ),
+            ),
           ),
         ),
         const SizedBox(height: 20),
@@ -113,11 +123,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  Widget _buildCard(
-    ThemeData theme,
-    bool isLoading,
-    String? error,
-  ) {
+  Widget _buildCard(ThemeData theme, bool isLoading, String? error) {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.white,
@@ -135,10 +141,38 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            _userIdField(),
+            TextFormField(
+              controller: _emailController,
+              textCapitalization: TextCapitalization.characters,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(
+                labelText: 'User ID',
+                prefixIcon: Icon(Icons.person_outline),
+              ),
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return 'User ID is required';
+                return null;
+              },
+            ),
             const SizedBox(height: 16),
-            _passwordField(),
-
+            TextFormField(
+              controller: _passwordController,
+              obscureText: _obscurePassword,
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) => _handleLogin(),
+              decoration: InputDecoration(
+                labelText: 'Password',
+                prefixIcon: const Icon(Icons.lock_outline),
+                suffixIcon: IconButton(
+                  icon: Icon(_obscurePassword
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined),
+                  onPressed: () =>
+                      setState(() => _obscurePassword = !_obscurePassword),
+                ),
+              ),
+              validator: ValidationUtils.validatePassword,
+            ),
             if (error != null) ...[
               const SizedBox(height: 12),
               Container(
@@ -148,32 +182,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   color: AppColors.error50,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: AppColors.error500.withOpacity(0.3),
-                  ),
+                      color: AppColors.error500.withOpacity(0.3)),
                 ),
                 child: Row(
                   children: [
-                    const Icon(
-                      Icons.error_outline_rounded,
-                      color: AppColors.error600,
-                      size: 16,
-                    ),
+                    const Icon(Icons.error_outline_rounded,
+                        color: AppColors.error600, size: 16),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
-                        error,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppColors.error600,
-                        ),
-                      ),
+                      child: Text(error,
+                          style: theme.textTheme.bodySmall
+                              ?.copyWith(color: AppColors.error600)),
                     ),
                   ],
                 ),
               ),
             ],
-
             const SizedBox(height: 20),
-
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -183,60 +208,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         height: 20,
                         width: 20,
                         child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
+                            strokeWidth: 2, color: Colors.white))
                     : const Text('Sign In'),
               ),
             ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _userIdField() {
-    return TextFormField(
-      controller: _emailController,
-      textCapitalization: TextCapitalization.characters,
-      textInputAction: TextInputAction.next,
-      decoration: const InputDecoration(
-        labelText: 'User ID',
-        prefixIcon: Icon(Icons.person_outline),
-      ),
-      validator: (v) {
-        if (v == null || v.trim().isEmpty) {
-          return 'User ID is required';
-        }
-        return null;
-      },
-    );
-  }
-
-  Widget _passwordField() {
-    return TextFormField(
-      controller: _passwordController,
-      obscureText: _obscurePassword,
-      textInputAction: TextInputAction.done,
-      onFieldSubmitted: (_) => _handleLogin(),
-      decoration: InputDecoration(
-        labelText: 'Password',
-        prefixIcon: const Icon(Icons.lock_outline),
-        suffixIcon: IconButton(
-          icon: Icon(
-            _obscurePassword
-                ? Icons.visibility_outlined
-                : Icons.visibility_off_outlined,
-          ),
-          onPressed: () {
-            setState(() {
-              _obscurePassword = !_obscurePassword;
-            });
-          },
-        ),
-      ),
-      validator: ValidationUtils.validatePassword,
     );
   }
 }
