@@ -9,30 +9,28 @@ final supabaseProvider = Provider<SupabaseClient>((ref) {
   return Supabase.instance.client;
 });
 
-// Auth state changes stream
 final authStateChangesProvider = StreamProvider<AuthState>((ref) {
   return Supabase.instance.client.auth.onAuthStateChange;
 });
 
-// Current user profile
-final currentProfileProvider =
-    FutureProvider<ProfileModel?>((ref) async {
+final currentProfileProvider = FutureProvider<ProfileModel?>((ref) async {
   final client = ref.read(supabaseProvider);
   final user = client.auth.currentUser;
   if (user == null) return null;
-
-  final data = await client.from('profiles').select().eq('id', user.id).maybeSingle();
+  final data = await client
+      .from('profiles')
+      .select()
+      .eq('id', user.id)
+      .maybeSingle();
   if (data == null) return null;
   return ProfileModel.fromJson(data);
 });
-  
 
 final currentUserRoleProvider = Provider<String>((ref) {
   final profile = ref.watch(currentProfileProvider);
   return profile.valueOrNull?.role ?? 'supervisor';
 });
 
-// Auth repository
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(ref.watch(supabaseProvider));
 });
@@ -43,39 +41,10 @@ class AuthRepository {
 
   Future<AuthResponse> signInWithEmail(String email, String password) async {
     try {
-      return await _client.auth.signInWithPassword(email: email, password: password);
+      return await _client.auth
+          .signInWithPassword(email: email, password: password);
     } on AuthException catch (e) {
       throw app_errors.AuthException(e.message);
-    }
-  }
-
-  Future<AuthResponse> signInWithEmployeeId(
-    String employeeId,
-    String password,
-  ) async {
-    try {
-      final supervisorData = await _client
-          .from('supervisors')
-          .select('email,is_active')
-          .eq('supervisor_code', employeeId.trim().toUpperCase())
-          .maybeSingle();
-
-      if (supervisorData == null) {
-        throw app_errors.AuthException('Invalid ID or password');
-      }
-
-      if (supervisorData['is_active'] != true) {
-        throw app_errors.AuthException('Supervisor account is inactive');
-      }
-
-      return await _client.auth.signInWithPassword(
-        email: supervisorData['email'] as String,
-        password: password,
-      );
-    } on AuthException {
-      rethrow;
-    } catch (e) {
-      throw app_errors.AuthException('Sign in failed: $e');
     }
   }
 
@@ -89,15 +58,16 @@ class AuthRepository {
 
   Future<UserResponse> updatePassword(String newPassword) async {
     try {
-      return await _client.auth.updateUser(UserAttributes(password: newPassword));
+      return await _client.auth
+          .updateUser(UserAttributes(password: newPassword));
     } on AuthException catch (e) {
       throw app_errors.AuthException(e.message);
     }
   }
 
   Future<void> signOut() async {
-  await _client.auth.signOut();
-}
+    await _client.auth.signOut();
+  }
 
   User? get currentUser => _client.auth.currentUser;
   Session? get currentSession => _client.auth.currentSession;
@@ -105,15 +75,16 @@ class AuthRepository {
   Future<ProfileModel?> getCurrentProfile() async {
     final user = _client.auth.currentUser;
     if (user == null) return null;
-    final data = await _client.from('profiles').select().eq('id', user.id).maybeSingle();
+    final data = await _client
+        .from('profiles')
+        .select()
+        .eq('id', user.id)
+        .maybeSingle();
     if (data == null) return null;
     return ProfileModel.fromJson(data);
   }
 
-  Future<void> saveFcmToken(
-    String token,
-    String platform,
-  ) async {
+  Future<void> saveFcmToken(String token, String platform) async {
     final user = _client.auth.currentUser;
     if (user == null) return;
     try {
@@ -126,13 +97,10 @@ class AuthRepository {
         },
         onConflict: 'token',
       );
-    } catch (_) {
-      // Ignore token save failures
-    }
+    } catch (_) {}
   }
 }
 
-// Employees repository
 final employeeRepositoryProvider = Provider<EmployeeRepository>((ref) {
   return EmployeeRepository(ref.watch(supabaseProvider));
 });
@@ -147,27 +115,17 @@ class EmployeeRepository {
     int page = 0,
     int limit = 20,
   }) async {
-    // Build a filter builder first, apply all filters, then add ordering and pagination.
-    // In postgrest 2.7.x, filter methods (eq, or, gte, lte) are only available on
-    // PostgrestFilterBuilder. Once .order() or .range() is called, the builder becomes
-    // a PostgrestTransformBuilder which no longer exposes those methods.
-    var filterQuery = _client
-        .from('employees')
-        .select('*, departments(name)');
-
-    if (status != null) {
-      filterQuery = filterQuery.eq('status', status);
-    }
-
+    var filterQuery = _client.from('employees').select('*, departments(name)');
+    if (status != null) filterQuery = filterQuery.eq('status', status);
     if (search != null && search.isNotEmpty) {
-      filterQuery = filterQuery.or('name.ilike.%$search%,employee_code.ilike.%$search%');
+      filterQuery = filterQuery
+          .or('name.ilike.%$search%,employee_code.ilike.%$search%');
     }
-
-    final data = await filterQuery
-        .order('name')
-        .range(page * limit, (page + 1) * limit - 1);
-
-    return (data as List).map((e) => EmployeeModel.fromJson(e as Map<String, dynamic>)).toList();
+    final data =
+        await filterQuery.order('name').range(page * limit, (page + 1) * limit - 1);
+    return (data as List)
+        .map((e) => EmployeeModel.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<EmployeeModel?> getById(String id) async {
@@ -181,77 +139,54 @@ class EmployeeRepository {
   }
 
   Future<EmployeeModel> create(Map<String, dynamic> data) async {
-  final code = await _client.rpc('generate_employee_code') as String;
+    final code = await _client.rpc('generate_employee_code') as String;
+    data['employee_code'] = code;
+    data['created_by'] = _client.auth.currentUser?.id;
+    final supervisorId = data.remove('supervisor_id');
 
-  data['employee_code'] = code;
-  data['created_by'] = _client.auth.currentUser?.id;
-  final supervisorId = data.remove('supervisor_id');
+    final result = await _client
+        .from('employees')
+        .insert(data)
+        .select('*, departments(name)')
+        .single();
 
-  final result = await _client
-      .from('employees')
-      .insert(data)
-      .select('*, departments(name)')
-      .single();
+    if (supervisorId != null) {
+      await _client.from('supervisor_employees').insert({
+        'supervisor_id': supervisorId,
+        'employee_id': result['id'],
+      });
+    }
 
-  if (supervisorId != null) {
-  await _client.from('supervisor_employees').insert({
-    'supervisor_id': supervisorId,
-    'employee_id': result['id'],
-  });
-}
-  await _logAudit(
-    'employee_created',
-    'employees',
-    result['id'] as String,
-    null,
-    result,
-  );
-
-  return EmployeeModel.fromJson(result);
-}
+    await _logAudit('employee_created', 'employees', result['id'] as String, null, result);
+    return EmployeeModel.fromJson(result);
+  }
 
   Future<EmployeeModel> update(String id, Map<String, dynamic> data) async {
-  final supervisorId = data.remove('supervisor_id');
+    final supervisorId = data.remove('supervisor_id');
+    final result = await _client
+        .from('employees')
+        .update(data)
+        .eq('id', id)
+        .select('*, departments(name)')
+        .single();
 
-  final result = await _client
-      .from('employees')
-      .update(data)
-      .eq('id', id)
-      .select('*, departments(name)')
-      .single();
-
-  await _client
-    .from('supervisor_employees')
-    .delete()
-    .eq('employee_id', id);
-
-if (supervisorId != null) {
-  await _client
-      .from('supervisor_employees')
-      .insert({
+    await _client.from('supervisor_employees').delete().eq('employee_id', id);
+    if (supervisorId != null) {
+      await _client.from('supervisor_employees').insert({
         'employee_id': id,
         'supervisor_id': supervisorId,
       });
+    }
 
+    await _logAudit('employee_updated', 'employees', id, null, result);
+    return EmployeeModel.fromJson(result);
   }
-
-  await _logAudit(
-    'employee_updated',
-    'employees',
-    id,
-    null,
-    result,
-  );
-
-  return EmployeeModel.fromJson(result);
-}
 
   Future<void> delete(String id) async {
     await _client.from('employees').delete().eq('id', id);
     await _logAudit('employee_deleted', 'employees', id, null, null);
   }
 
-  // Fix #2: Uint8List.fromList instead of unsafe cast
   Future<void> uploadPhoto(String employeeId, List<int> fileBytes, String fileName) async {
     final userId = _client.auth.currentUser?.id ?? 'unknown';
     final path = '$userId/$employeeId/$fileName';
@@ -266,11 +201,11 @@ if (supervisorId != null) {
     final data = status == null
         ? await _client.from('employees').select('id')
         : await _client.from('employees').select('id').eq('status', status);
-
     return (data as List).length;
   }
 
-  Future<void> _logAudit(String action, String entity, String entityId, dynamic old, dynamic newVal) async {
+  Future<void> _logAudit(String action, String entity, String entityId,
+      dynamic old, dynamic newVal) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return;
     try {
@@ -286,36 +221,22 @@ if (supervisorId != null) {
   }
 }
 
-// Supervisors repository
 final supervisorRepositoryProvider = Provider<SupervisorRepository>((ref) {
   return SupervisorRepository(ref.watch(supabaseProvider));
 });
 
 class SupervisorRepository {
   final SupabaseClient _client;
-
   SupervisorRepository(this._client);
 
-  Future<List<SupervisorModel>> getAll({
-    String? search,
-    bool? isActive,
-  }) async {
-    // Apply all filters on the PostgrestFilterBuilder before calling .order(),
-    // which would promote the builder to PostgrestTransformBuilder.
+  Future<List<SupervisorModel>> getAll({String? search, bool? isActive}) async {
     var filterQuery = _client.from('supervisors').select();
-
-    if (isActive != null) {
-      filterQuery = filterQuery.eq('is_active', isActive);
-    }
-
+    if (isActive != null) filterQuery = filterQuery.eq('is_active', isActive);
     if (search != null && search.trim().isNotEmpty) {
       filterQuery = filterQuery.or(
-        'name.ilike.%$search%,email.ilike.%$search%,supervisor_code.ilike.%$search%',
-      );
+          'name.ilike.%$search%,email.ilike.%$search%,supervisor_code.ilike.%$search%');
     }
-
     final result = await filterQuery.order('created_at', ascending: false);
-
     return (result as List)
         .map((e) => SupervisorModel.fromJson(e as Map<String, dynamic>))
         .toList();
@@ -342,31 +263,25 @@ class SupervisorRepository {
   }
 
   Future<SupervisorModel> create(
-    Map<String, dynamic> supervisorData,
-    String password,
-  ) async {
+      Map<String, dynamic> supervisorData, String password) async {
     final response = await _client.functions.invoke(
-  'create-supervisor',
-  body: {
-    'email': supervisorData['email'],
-    'password': password,
-    'full_name': supervisorData['name'],
-    'mobile': supervisorData['mobile'],
-    'assigned_area': supervisorData['assigned_area'],
-  },
-);
-    // Fix #6: safe cast of response.data before key access
-    final responseData = response.data as Map<String, dynamic>?;
+      'create-supervisor',
+      body: {
+        'email': supervisorData['email'],
+        'password': password,
+        'full_name': supervisorData['name'],
+        'mobile': supervisorData['mobile'],
+        'assigned_area': supervisorData['assigned_area'],
+        'must_change_password': true,
+      },
+    );
 
+    final responseData = response.data as Map<String, dynamic>?;
     if (response.status != 200) {
-      throw Exception(
-        responseData?['error'] ?? 'Failed to create supervisor',
-      );
+      throw Exception(responseData?['error'] ?? 'Failed to create supervisor');
     }
 
-    // Fix #4: typed extraction of supervisor_code
     final supervisorCode = responseData!['supervisor_code'] as String;
-
     final supervisor = await _client
         .from('supervisors')
         .select()
@@ -379,14 +294,10 @@ class SupervisorRepository {
   Future<SupervisorModel> update(String id, Map<String, dynamic> data) async {
     final result = await _client
         .from('supervisors')
-        .update({
-          ...data,
-          'updated_at': DateTime.now().toIso8601String(),
-        })
+        .update({...data, 'updated_at': DateTime.now().toIso8601String()})
         .eq('id', id)
         .select()
         .single();
-
     return SupervisorModel.fromJson(result);
   }
 
@@ -396,16 +307,36 @@ class SupervisorRepository {
         .select('profile_id')
         .eq('id', id)
         .maybeSingle();
-
     await _client.from('supervisors').delete().eq('id', id);
-
     if (supervisor != null && supervisor['profile_id'] != null) {
       try {
-        await _client.functions.invoke(
-          'delete-supervisor',
-          body: {'user_id': supervisor['profile_id']},
-        );
+        await _client.functions.invoke('delete-supervisor',
+            body: {'user_id': supervisor['profile_id']});
       } catch (_) {}
+    }
+  }
+
+  Future<void> uploadPhoto(
+      String supervisorId, List<int> fileBytes, String fileName) async {
+    final userId = _client.auth.currentUser?.id ?? 'unknown';
+    final path = '$userId/supervisors/$supervisorId/$fileName';
+    await _client.storage
+        .from('employee_photos')
+        .uploadBinary(path, Uint8List.fromList(fileBytes));
+    final url =
+        _client.storage.from('employee_photos').getPublicUrl(path);
+    await _client
+        .from('supervisors')
+        .update({'profile_photo_url': url}).eq('id', supervisorId);
+    final sup = await _client
+        .from('supervisors')
+        .select('profile_id')
+        .eq('id', supervisorId)
+        .maybeSingle();
+    if (sup?['profile_id'] != null) {
+      await _client
+          .from('profiles')
+          .update({'profile_photo_url': url}).eq('id', sup!['profile_id']);
     }
   }
 
@@ -414,10 +345,10 @@ class SupervisorRepository {
         .from('supervisor_employees')
         .select('employees(*, departments(name))')
         .eq('supervisor_id', supervisorId);
-
     return (data as List)
         .where((row) => row['employees'] != null)
-        .map((row) => EmployeeModel.fromJson(row['employees'] as Map<String, dynamic>))
+        .map((row) =>
+            EmployeeModel.fromJson(row['employees'] as Map<String, dynamic>))
         .toList();
   }
 
@@ -428,13 +359,9 @@ class SupervisorRepository {
         .eq('supervisor_id', supervisorId)
         .eq('employee_id', employeeId)
         .maybeSingle();
-
     if (existing != null) return;
-
-    await _client.from('supervisor_employees').insert({
-      'supervisor_id': supervisorId,
-      'employee_id': employeeId,
-    });
+    await _client.from('supervisor_employees').insert(
+        {'supervisor_id': supervisorId, 'employee_id': employeeId});
   }
 
   Future<void> removeEmployee(String supervisorId, String employeeId) async {
@@ -446,7 +373,6 @@ class SupervisorRepository {
   }
 }
 
-// Attendance repository
 final attendanceRepositoryProvider = Provider<AttendanceRepository>((ref) {
   return AttendanceRepository(ref.watch(supabaseProvider));
 });
@@ -462,35 +388,32 @@ class AttendanceRepository {
     int page = 0,
     int limit = 20,
   }) async {
-    // All filter methods (eq, gte, lte) must be called on the PostgrestFilterBuilder
-    // returned by .select(), before any transform methods (.order(), .range()).
-    var filterQuery = _client
-        .from('attendance')
-        .select('*, supervisors(name), attendance_details(*, employees(name, employee_code))');
-
+    var filterQuery = _client.from('attendance').select(
+        '*, supervisors(name), attendance_details(*, employees(name, employee_code))');
     if (supervisorId != null) {
       filterQuery = filterQuery.eq('supervisor_id', supervisorId);
     }
-
     if (fromDate != null) {
-      filterQuery = filterQuery.gte('attendance_date', fromDate.toIso8601String().split('T').first);
+      filterQuery = filterQuery.gte(
+          'attendance_date', fromDate.toIso8601String().split('T').first);
     }
-
     if (toDate != null) {
-      filterQuery = filterQuery.lte('attendance_date', toDate.toIso8601String().split('T').first);
+      filterQuery = filterQuery.lte(
+          'attendance_date', toDate.toIso8601String().split('T').first);
     }
-
     final data = await filterQuery
         .order('attendance_date', ascending: false)
         .range(page * limit, (page + 1) * limit - 1);
-
-    return (data as List).map((a) => AttendanceModel.fromJson(a as Map<String, dynamic>)).toList();
+    return (data as List)
+        .map((a) => AttendanceModel.fromJson(a as Map<String, dynamic>))
+        .toList();
   }
 
   Future<AttendanceModel?> getById(String id) async {
     final data = await _client
         .from('attendance')
-        .select('*, supervisors(name), attendance_details(*, employees(name, employee_code))')
+        .select(
+            '*, supervisors(name), attendance_details(*, employees(name, employee_code))')
         .eq('id', id)
         .maybeSingle();
     if (data == null) return null;
@@ -501,7 +424,8 @@ class AttendanceRepository {
     final today = DateTime.now().toIso8601String().split('T').first;
     final data = await _client
         .from('attendance')
-        .select('*, attendance_details(*, employees(name, employee_code))')
+        .select(
+            '*, attendance_details(*, employees(name, employee_code))')
         .eq('supervisor_id', supervisorId)
         .eq('attendance_date', today)
         .maybeSingle();
@@ -513,95 +437,165 @@ class AttendanceRepository {
     Map<String, dynamic> attendanceData,
     List<Map<String, dynamic>> detailsData,
   ) async {
-    final result = await _client.from('attendance').insert(attendanceData).select().single();
+    final result = await _client
+        .from('attendance')
+        .insert(attendanceData)
+        .select()
+        .single();
     final attendanceId = result['id'] as String;
-
-    final details = detailsData.map((d) => {...d, 'attendance_id': attendanceId}).toList();
+    final details =
+        detailsData.map((d) => {...d, 'attendance_id': attendanceId}).toList();
     await _client.from('attendance_details').insert(details);
 
-    final full = await getById(attendanceId);
+    // Notify all admins
+    await _notifyAdmins(
+      title: 'New Attendance Submitted',
+      body: 'Attendance submitted for ${attendanceData['attendance_date']}',
+      type: 'attendance',
+      referenceId: attendanceId,
+    );
+
     await _logAudit('attendance_created', 'attendance', attendanceId);
+    final full = await getById(attendanceId);
     return full!;
   }
 
   Future<AttendanceModel> updateDetails(
-  String attendanceId,
-  Map<String, dynamic> attendanceData,
-  List<Map<String, dynamic>> detailsData,
-) async {
-  await _client
-      .from('attendance')
-      .update({
-        ...attendanceData,
-        'is_approved': false,
-        'approved_by': null,
-        'approved_at': null,
-      })
-      .eq('id', attendanceId);
+    String attendanceId,
+    Map<String, dynamic> attendanceData,
+    List<Map<String, dynamic>> detailsData,
+  ) async {
+    await _client.from('attendance').update({
+      ...attendanceData,
+      'is_approved': false,
+      'approved_by': null,
+      'approved_at': null,
+    }).eq('id', attendanceId);
 
-  for (final detail in detailsData) {
-    await _client.from('attendance_details').upsert(
-      {
-        ...detail,
-        'attendance_id': attendanceId,
-      },
-      onConflict: 'attendance_id, employee_id',
+    for (final detail in detailsData) {
+      await _client.from('attendance_details').upsert(
+        {...detail, 'attendance_id': attendanceId},
+        onConflict: 'attendance_id, employee_id',
+      );
+    }
+
+    // Notify admins of resubmission
+    await _notifyAdmins(
+      title: 'Attendance Resubmitted',
+      body: 'Attendance has been edited and resubmitted for approval',
+      type: 'attendance',
+      referenceId: attendanceId,
     );
+
+    await _logAudit('attendance_updated', 'attendance', attendanceId);
+    final full = await getById(attendanceId);
+    return full!;
   }
 
-  final full = await getById(attendanceId);
-
-  await _logAudit(
-    'attendance_updated',
-    'attendance',
-    attendanceId,
-  );
-
-  return full!;
-}
-
   Future<void> approve(String attendanceId, String adminId) async {
+    final att = await _client
+        .from('attendance')
+        .select('supervisor_id')
+        .eq('id', attendanceId)
+        .maybeSingle();
+
     await _client.from('attendance').update({
       'is_approved': true,
       'approved_by': adminId,
       'approved_at': DateTime.now().toIso8601String(),
     }).eq('id', attendanceId);
+
+    // Notify supervisor
+    if (att != null) {
+      await _notifySupervisor(
+        supervisorId: att['supervisor_id'] as String,
+        title: 'Attendance Approved',
+        body: 'Your attendance submission has been approved',
+        type: 'attendance_approved',
+        referenceId: attendanceId,
+      );
+    }
+
     await _logAudit('attendance_approved', 'attendance', attendanceId);
   }
 
   Future<Map<String, int>> getTodaySummary() async {
-  final today = DateTime.now()
-      .toIso8601String()
-      .split('T')
-      .first;
+    final today = DateTime.now().toIso8601String().split('T').first;
+    final attendance = await _client
+        .from('attendance')
+        .select('attendance_details(status)')
+        .eq('attendance_date', today);
 
-  final attendance = await _client
-      .from('attendance')
-      .select('attendance_details(status)')
-      .eq('attendance_date', today);
+    final counts = <String, int>{
+      'present': 0,
+      'absent': 0,
+      'half_day': 0,
+      'leave': 0
+    };
 
-  final counts = <String, int>{
-    'present': 0,
-    'absent': 0,
-    'half_day': 0,
-    'leave': 0,
-  };
-
-  for (final record in attendance as List) {
-    final details =
-        record['attendance_details'] as List<dynamic>? ?? [];
-
-    for (final detail in details) {
-      final status = detail['status'] as String?;
-
-      if (status != null) {
-        counts[status] = (counts[status] ?? 0) + 1;
+    for (final record in attendance as List) {
+      final details = record['attendance_details'] as List<dynamic>? ?? [];
+      for (final detail in details) {
+        final status = detail['status'] as String?;
+        if (status != null) counts[status] = (counts[status] ?? 0) + 1;
       }
     }
+    return counts;
   }
 
-  return counts;
-}
+  Future<void> _notifyAdmins({
+    required String title,
+    required String body,
+    String? type,
+    String? referenceId,
+  }) async {
+    try {
+      final admins = await _client
+          .from('profiles')
+          .select('id')
+          .eq('role', 'admin')
+          .eq('is_active', true);
+
+      for (final admin in admins as List) {
+        await _client.from('notifications').insert({
+          'user_id': admin['id'],
+          'title': title,
+          'body': body,
+          'type': type,
+          'reference_id': referenceId,
+          'reference_type': type,
+          'is_read': false,
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _notifySupervisor({
+    required String supervisorId,
+    required String title,
+    required String body,
+    String? type,
+    String? referenceId,
+  }) async {
+    try {
+      final sup = await _client
+          .from('supervisors')
+          .select('profile_id')
+          .eq('id', supervisorId)
+          .maybeSingle();
+      if (sup?['profile_id'] != null) {
+        await _client.from('notifications').insert({
+          'user_id': sup!['profile_id'],
+          'title': title,
+          'body': body,
+          'type': type,
+          'reference_id': referenceId,
+          'reference_type': type,
+          'is_read': false,
+        });
+      }
+    } catch (_) {}
+  }
 
   Future<void> _logAudit(String action, String entity, String entityId) async {
     final userId = _client.auth.currentUser?.id;
@@ -617,7 +611,6 @@ class AttendanceRepository {
   }
 }
 
-// Expense repository
 final expenseRepositoryProvider = Provider<ExpenseRepository>((ref) {
   return ExpenseRepository(ref.watch(supabaseProvider));
 });
@@ -635,38 +628,28 @@ class ExpenseRepository {
     int page = 0,
     int limit = 20,
   }) async {
-    // All filter methods must be chained on the PostgrestFilterBuilder (from .select())
-    // before any transform calls (.order(), .range()), which return a
-    // PostgrestTransformBuilder that no longer exposes filter methods.
     var filterQuery = _client
         .from('expenses')
         .select('*, supervisors(name), expense_attachments(*)');
-
     if (supervisorId != null) {
       filterQuery = filterQuery.eq('supervisor_id', supervisorId);
     }
-
-    if (status != null) {
-      filterQuery = filterQuery.eq('status', status);
-    }
-
-    if (category != null) {
-      filterQuery = filterQuery.eq('category', category);
-    }
-
+    if (status != null) filterQuery = filterQuery.eq('status', status);
+    if (category != null) filterQuery = filterQuery.eq('category', category);
     if (fromDate != null) {
-      filterQuery = filterQuery.gte('expense_date', fromDate.toIso8601String().split('T').first);
+      filterQuery = filterQuery.gte(
+          'expense_date', fromDate.toIso8601String().split('T').first);
     }
-
     if (toDate != null) {
-      filterQuery = filterQuery.lte('expense_date', toDate.toIso8601String().split('T').first);
+      filterQuery = filterQuery.lte(
+          'expense_date', toDate.toIso8601String().split('T').first);
     }
-
     final data = await filterQuery
         .order('created_at', ascending: false)
         .range(page * limit, (page + 1) * limit - 1);
-
-    return (data as List).map((e) => ExpenseModel.fromJson(e as Map<String, dynamic>)).toList();
+    return (data as List)
+        .map((e) => ExpenseModel.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   Future<ExpenseModel?> getById(String id) async {
@@ -680,49 +663,103 @@ class ExpenseRepository {
   }
 
   Future<ExpenseModel> create(Map<String, dynamic> data) async {
-    final result = await _client.from('expenses').insert(data).select('*, supervisors(name)').single();
-    await _logAudit('expense_submitted', 'expenses', result['id'] as String);
+    final result = await _client
+        .from('expenses')
+        .insert(data)
+        .select('*, supervisors(name)')
+        .single();
+    final expenseId = result['id'] as String;
+
+    await _logAudit('expense_submitted', 'expenses', expenseId);
+
+    // Notify admins
+    await _notifyAdmins(
+      title: 'New Expense Submitted',
+      body: '${data['expense_name']} - ₹${data['amount']}',
+      type: 'expense',
+      referenceId: expenseId,
+    );
+
     return ExpenseModel.fromJson(result);
   }
 
   Future<ExpenseModel> update(String id, Map<String, dynamic> data) async {
-    final result = await _client.from('expenses').update(data).eq('id', id).select('*, supervisors(name)').single();
+    final result = await _client
+        .from('expenses')
+        .update(data)
+        .eq('id', id)
+        .select('*, supervisors(name)')
+        .single();
     return ExpenseModel.fromJson(result);
   }
 
   Future<void> approve(String id, String adminId, {String? remarks}) async {
+    final exp = await _client
+        .from('expenses')
+        .select('supervisor_id, expense_name, amount')
+        .eq('id', id)
+        .maybeSingle();
+
     await _client.from('expenses').update({
       'status': 'approved',
       'reviewed_by': adminId,
       'reviewed_at': DateTime.now().toIso8601String(),
       'admin_remarks': remarks,
     }).eq('id', id);
+
     await _logAudit('expense_approved', 'expenses', id);
+
+    if (exp != null) {
+      await _notifySupervisor(
+        supervisorId: exp['supervisor_id'] as String,
+        title: 'Expense Approved',
+        body: '${exp['expense_name']} ₹${exp['amount']} has been approved',
+        type: 'expense_approved',
+        referenceId: id,
+      );
+    }
   }
 
-  Future<void> reject(String id, String adminId, {required String remarks}) async {
+  Future<void> reject(String id, String adminId,
+      {required String remarks}) async {
+    final exp = await _client
+        .from('expenses')
+        .select('supervisor_id, expense_name')
+        .eq('id', id)
+        .maybeSingle();
+
     await _client.from('expenses').update({
       'status': 'rejected',
       'reviewed_by': adminId,
       'reviewed_at': DateTime.now().toIso8601String(),
       'admin_remarks': remarks,
     }).eq('id', id);
+
     await _logAudit('expense_rejected', 'expenses', id);
+
+    if (exp != null) {
+      await _notifySupervisor(
+        supervisorId: exp['supervisor_id'] as String,
+        title: 'Expense Rejected',
+        body: '${exp['expense_name']} has been rejected. Reason: $remarks',
+        type: 'expense_rejected',
+        referenceId: id,
+      );
+    }
   }
 
-  // Fix #3: Uint8List.fromList instead of unsafe cast
-  Future<String> uploadAttachment(String expenseId, List<int> bytes, String fileName, String mimeType, {bool isReceipt = false}) async {
+  Future<String> uploadAttachment(String expenseId, List<int> bytes,
+      String fileName, String mimeType,
+      {bool isReceipt = false}) async {
     final userId = _client.auth.currentUser?.id ?? 'unknown';
     final path = '$userId/$expenseId/$fileName';
-    await _client.storage
-        .from('expense_receipts')
-        .uploadBinary(
+    await _client.storage.from('expense_receipts').uploadBinary(
           path,
           Uint8List.fromList(bytes),
           fileOptions: FileOptions(contentType: mimeType),
         );
-    final url = _client.storage.from('expense_receipts').getPublicUrl(path);
-
+    final url =
+        _client.storage.from('expense_receipts').getPublicUrl(path);
     await _client.from('expense_attachments').insert({
       'expense_id': expenseId,
       'file_url': url,
@@ -735,8 +772,14 @@ class ExpenseRepository {
   }
 
   Future<Map<String, dynamic>> getSummary() async {
-    final data = await _client.from('expenses').select('status, amount');
-    final summary = {'pending': 0.0, 'approved': 0.0, 'rejected': 0.0, 'total': 0.0};
+    final data =
+        await _client.from('expenses').select('status, amount');
+    final summary = {
+      'pending': 0.0,
+      'approved': 0.0,
+      'rejected': 0.0,
+      'total': 0.0
+    };
     for (final row in data as List) {
       final status = row['status'] as String;
       final amount = (row['amount'] as num).toDouble();
@@ -746,7 +789,61 @@ class ExpenseRepository {
     return summary;
   }
 
-  Future<void> _logAudit(String action, String entity, String entityId) async {
+  Future<void> _notifyAdmins({
+    required String title,
+    required String body,
+    String? type,
+    String? referenceId,
+  }) async {
+    try {
+      final admins = await _client
+          .from('profiles')
+          .select('id')
+          .eq('role', 'admin')
+          .eq('is_active', true);
+      for (final admin in admins as List) {
+        await _client.from('notifications').insert({
+          'user_id': admin['id'],
+          'title': title,
+          'body': body,
+          'type': type,
+          'reference_id': referenceId,
+          'reference_type': type,
+          'is_read': false,
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _notifySupervisor({
+    required String supervisorId,
+    required String title,
+    required String body,
+    String? type,
+    String? referenceId,
+  }) async {
+    try {
+      final sup = await _client
+          .from('supervisors')
+          .select('profile_id')
+          .eq('id', supervisorId)
+          .maybeSingle();
+      if (sup?['profile_id'] != null) {
+        await _client.from('notifications').insert({
+          'user_id': sup!['profile_id'],
+          'title': title,
+          'body': body,
+          'type': type,
+          'reference_id': referenceId,
+          'reference_type': type,
+          'is_read': false,
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _logAudit(
+      String action, String entity, String entityId) async {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) return;
     try {
@@ -760,7 +857,6 @@ class ExpenseRepository {
   }
 }
 
-// Payroll repository
 final payrollRepositoryProvider = Provider<PayrollRepository>((ref) {
   return PayrollRepository(ref.watch(supabaseProvider));
 });
@@ -776,10 +872,13 @@ class PayrollRepository {
         .eq('payroll_month', month)
         .eq('payroll_year', year)
         .order('created_at', ascending: false);
-    return (data as List).map((p) => PayrollModel.fromJson(p as Map<String, dynamic>)).toList();
+    return (data as List)
+        .map((p) => PayrollModel.fromJson(p as Map<String, dynamic>))
+        .toList();
   }
 
-  Future<PayrollModel?> getByEmployeeMonth(String employeeId, int month, int year) async {
+  Future<PayrollModel?> getByEmployeeMonth(
+      String employeeId, int month, int year) async {
     final data = await _client
         .from('payroll')
         .select('*, employees(name, employee_code)')
@@ -791,15 +890,19 @@ class PayrollRepository {
     return PayrollModel.fromJson(data);
   }
 
-  Future<PayrollModel> processPayroll(String employeeId, int month, int year) async {
-    // Get attendance summary
+  Future<PayrollModel> processPayroll(
+      String employeeId, int month, int year) async {
     final summary = await _client.rpc('get_monthly_attendance_summary', params: {
       'p_employee_id': employeeId,
       'p_month': month,
       'p_year': year,
     }) as List;
 
-    final employee = await _client.from('employees').select('daily_wage_rate').eq('id', employeeId).single();
+    final employee = await _client
+        .from('employees')
+        .select('daily_wage_rate')
+        .eq('id', employeeId)
+        .single();
     final wageRate = (employee['daily_wage_rate'] as num).toDouble();
 
     final s = summary.isNotEmpty ? summary.first as Map : <String, dynamic>{};
@@ -808,8 +911,6 @@ class PayrollRepository {
     final absentDays = (s['absent_days'] as num?)?.toDouble() ?? 0;
     final leaveDays = (s['leave_days'] as num?)?.toDouble() ?? 0;
 
-    // Get pending advances
-    // Fix #5: .filter('payroll_id', 'is', null) instead of deprecated .isFilter()
     final advances = await _client
         .from('payroll_transactions')
         .select('amount')
@@ -843,7 +944,8 @@ class PayrollRepository {
 
     final result = await _client
         .from('payroll')
-        .upsert(payrollData, onConflict: 'employee_id, payroll_month, payroll_year')
+        .upsert(payrollData,
+            onConflict: 'employee_id, payroll_month, payroll_year')
         .select('*, employees(name, employee_code)')
         .single();
 
@@ -885,17 +987,21 @@ class PayrollRepository {
   }
 }
 
-// Dashboard stats provider
-final dashboardStatsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+final dashboardStatsProvider =
+    FutureProvider<Map<String, dynamic>>((ref) async {
   final client = ref.read(supabaseProvider);
   final now = DateTime.now();
 
   final totalEmp = await client.from('employees').select('id');
-  final activeEmp = await client.from('employees').select('id').eq('status', 'active');
-
-  final todayAttendance = await ref.read(attendanceRepositoryProvider).getTodaySummary();
-  final expenseSummary = await ref.read(expenseRepositoryProvider).getSummary();
-  final payrollSummary = await ref.read(payrollRepositoryProvider).getMonthlySummary(now.month, now.year);
+  final activeEmp =
+      await client.from('employees').select('id').eq('status', 'active');
+  final todayAttendance =
+      await ref.read(attendanceRepositoryProvider).getTodaySummary();
+  final expenseSummary =
+      await ref.read(expenseRepositoryProvider).getSummary();
+  final payrollSummary = await ref
+      .read(payrollRepositoryProvider)
+      .getMonthlySummary(now.month, now.year);
 
   return {
     'total_employees': (totalEmp as List).length,
