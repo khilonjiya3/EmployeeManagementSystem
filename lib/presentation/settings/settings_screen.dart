@@ -1,16 +1,115 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/app_utils.dart';
 import '../../data/repositories/auth_repository.dart';
 
-class SettingsScreen extends ConsumerWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  File? _newPhotoFile;
+  bool _isUploadingPhoto = false;
+
+  Future<void> _pickAndUploadPhoto() async {
+    final picker = ImagePicker();
+    final file = await picker.pickImage(
+        source: ImageSource.gallery, maxWidth: 800, imageQuality: 80);
+    if (file == null) return;
+
+    setState(() {
+      _newPhotoFile = File(file.path);
+      _isUploadingPhoto = true;
+    });
+
+    try {
+      final client = ref.read(supabaseProvider);
+      final user = client.auth.currentUser;
+      if (user == null) return;
+
+      final bytes = await _newPhotoFile!.readAsBytes();
+      final path = 'profiles/${user.id}/photo_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+      await client.storage
+          .from('employee_photos')
+          .uploadBinary(path, bytes);
+
+      final url = client.storage.from('employee_photos').getPublicUrl(path);
+
+      await client.from('profiles').update({'profile_photo_url': url}).eq('id', user.id);
+
+      ref.invalidate(currentProfileProvider);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Photo updated'),
+            backgroundColor: AppColors.success500));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: AppColors.error500));
+      }
+    } finally {
+      if (mounted) setState(() => _isUploadingPhoto = false);
+    }
+  }
+
+  void _showEditName(BuildContext context, WidgetRef ref, String currentName) {
+    final controller = TextEditingController(text: currentName);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => Padding(
+        padding: EdgeInsets.fromLTRB(
+            16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Edit Name',
+                style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: controller,
+              decoration: const InputDecoration(labelText: 'Full Name'),
+              textCapitalization: TextCapitalization.words,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () async {
+                final name = controller.text.trim();
+                if (name.isEmpty) return;
+                final client = ref.read(supabaseProvider);
+                final user = client.auth.currentUser;
+                if (user == null) return;
+                await client
+                    .from('profiles')
+                    .update({'full_name': name}).eq('id', user.id);
+                ref.invalidate(currentProfileProvider);
+                if (context.mounted) Navigator.pop(context);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final profile = ref.watch(currentProfileProvider).valueOrNull;
     final theme = Theme.of(context);
 
@@ -30,39 +129,86 @@ class SettingsScreen extends ConsumerWidget {
               ),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 28,
-                    backgroundColor: AppColors.primary100,
-                    backgroundImage: profile?.profilePhotoUrl != null
-                        ? NetworkImage(profile!.profilePhotoUrl!)
-                        : null,
-                    child: profile?.profilePhotoUrl == null
-                        ? Text(
-                            (profile?.fullName ?? 'U')[0].toUpperCase(),
-                            style: const TextStyle(
-                              color: AppColors.primary600,
-                              fontFamily: 'Inter',
-                              fontSize: 22,
-                              fontWeight: FontWeight.w700,
+                  GestureDetector(
+                    onTap: _pickAndUploadPhoto,
+                    child: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 32,
+                          backgroundColor: AppColors.primary100,
+                          backgroundImage: _newPhotoFile != null
+                              ? FileImage(_newPhotoFile!) as ImageProvider
+                              : profile?.profilePhotoUrl != null
+                                  ? NetworkImage(profile!.profilePhotoUrl!)
+                                  : null,
+                          child: _newPhotoFile == null &&
+                                  profile?.profilePhotoUrl == null
+                              ? Text(
+                                  (profile?.fullName ?? 'U')[0].toUpperCase(),
+                                  style: const TextStyle(
+                                    color: AppColors.primary600,
+                                    fontFamily: 'Inter',
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                )
+                              : null,
+                        ),
+                        if (_isUploadingPhoto)
+                          const Positioned.fill(
+                            child: CircleAvatar(
+                              backgroundColor: Colors.black38,
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white),
+                              ),
                             ),
-                          )
-                        : null,
+                          ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary500,
+                              shape: BoxShape.circle,
+                              border:
+                                  Border.all(color: Colors.white, width: 1.5),
+                            ),
+                            child: const Icon(Icons.camera_alt_rounded,
+                                color: Colors.white, size: 12),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(profile?.fullName ?? '', style: theme.textTheme.titleMedium),
+                        Text(profile?.fullName ?? '',
+                            style: theme.textTheme.titleMedium),
                         Text(
                           StringUtils.capitalize(profile?.role ?? ''),
-                          style: theme.textTheme.bodySmall?.copyWith(color: AppColors.primary600),
+                          style: theme.textTheme.bodySmall
+                              ?.copyWith(color: AppColors.primary600),
                         ),
                         if (profile?.mobile != null)
-                          Text(profile!.mobile!, style: theme.textTheme.bodySmall),
+                          Text(profile!.mobile!,
+                              style: theme.textTheme.bodySmall),
                       ],
                     ),
                   ),
+                  if (profile?.isAdmin == true)
+                    IconButton(
+                      icon: const Icon(Icons.edit_outlined,
+                          color: AppColors.primary500),
+                      onPressed: () => _showEditName(
+                          context, ref, profile?.fullName ?? ''),
+                    ),
                 ],
               ),
             ),
@@ -78,7 +224,7 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => _showChangePassword(context, ref),
           ),
 
-          // Company (admin only)
+          // Admin sections
           if (profile?.isAdmin == true) ...[
             _SectionTitle(title: 'Administration'),
             ListTile(
@@ -103,13 +249,7 @@ class SettingsScreen extends ConsumerWidget {
               leading: const Icon(Icons.location_on_outlined),
               title: const Text('Manage Locations'),
               trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () {},
-            ),
-            ListTile(
-              leading: const Icon(Icons.history_rounded),
-              title: const Text('Audit Logs'),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => _showAuditLogs(context, ref),
+              onTap: () => _showManageLocations(context, ref),
             ),
           ],
 
@@ -118,31 +258,22 @@ class SettingsScreen extends ConsumerWidget {
           const ListTile(
             leading: Icon(Icons.info_outline_rounded),
             title: Text('App Version'),
-            trailing: Text(
-              '1.0.0',
-              style: TextStyle(color: AppColors.secondary500, fontFamily: 'Inter'),
-            ),
-          ),
-          const ListTile(
-            leading: Icon(Icons.security_rounded),
-            title: Text('Privacy Policy'),
-            trailing: Icon(Icons.chevron_right_rounded),
+            trailing: Text('1.0.0',
+                style: TextStyle(
+                    color: AppColors.secondary500, fontFamily: 'Inter')),
           ),
 
           const SizedBox(height: 16),
-
-          // Logout
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: OutlinedButton.icon(
-              icon: const Icon(Icons.logout_rounded, color: AppColors.error500, size: 18),
-              label: const Text('Sign Out', style: TextStyle(color: AppColors.error500)),
+              icon: const Icon(Icons.logout_rounded,
+                  color: AppColors.error500, size: 18),
+              label: const Text('Sign Out',
+                  style: TextStyle(color: AppColors.error500)),
               style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: AppColors.error500),
-              ),
-              onPressed: () async {
-                await _confirmSignOut(context, ref);
-              },
+                  side: const BorderSide(color: AppColors.error500)),
+              onPressed: () async => _confirmSignOut(context, ref),
             ),
           ),
           const SizedBox(height: 32),
@@ -160,59 +291,56 @@ class SettingsScreen extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => Padding(
         padding: EdgeInsets.fromLTRB(
-          16,
-          16,
-          16,
-          MediaQuery.of(context).viewInsets.bottom + 16,
-        ),
+            16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 16),
         child: Form(
           key: formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Change Password', style: Theme.of(context).textTheme.titleLarge),
+              Text('Change Password',
+                  style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 16),
               TextFormField(
                 controller: newController,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'New Password'),
+                decoration:
+                    const InputDecoration(labelText: 'New Password'),
                 validator: ValidationUtils.validatePassword,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: confirmController,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'Confirm Password'),
-                validator: (v) => v != newController.text ? 'Passwords do not match' : null,
+                decoration:
+                    const InputDecoration(labelText: 'Confirm Password'),
+                validator: (v) =>
+                    v != newController.text ? 'Passwords do not match' : null,
               ),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () async {
                   if (!formKey.currentState!.validate()) return;
                   try {
-                    await ref.read(authRepositoryProvider).updatePassword(newController.text);
+                    await ref
+                        .read(authRepositoryProvider)
+                        .updatePassword(newController.text);
                     if (context.mounted) {
                       Navigator.pop(context);
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Password updated'),
-                          backgroundColor: AppColors.success500,
-                        ),
+                            content: Text('Password updated'),
+                            backgroundColor: AppColors.success500),
                       );
                     }
                   } catch (e) {
                     if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                           content: Text('Error: $e'),
-                          backgroundColor: AppColors.error500,
-                        ),
-                      );
+                          backgroundColor: AppColors.error500));
                     }
                   }
                 },
@@ -230,34 +358,36 @@ class SettingsScreen extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => Padding(
         padding: EdgeInsets.fromLTRB(
-          16,
-          16,
-          16,
-          MediaQuery.of(context).viewInsets.bottom + 16,
-        ),
+            16, 16, 16, MediaQuery.of(context).viewInsets.bottom + 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Company Settings', style: Theme.of(context).textTheme.titleLarge),
+            Text('Company Settings',
+                style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 16),
             FutureBuilder(
-              future: ref.read(supabaseProvider).from('company_settings').select().maybeSingle(),
+              future: ref
+                  .read(supabaseProvider)
+                  .from('company_settings')
+                  .select()
+                  .maybeSingle(),
               builder: (ctx, snapshot) {
-                if (!snapshot.hasData) return const CircularProgressIndicator();
+                if (!snapshot.hasData) {
+                  return const CircularProgressIndicator();
+                }
                 final settings = snapshot.data as Map<String, dynamic>?;
                 final nameController = TextEditingController(
-                  text: settings?['company_name'] as String? ?? '',
-                );
+                    text: settings?['company_name'] as String? ?? '');
                 return Column(
                   children: [
                     TextFormField(
                       controller: nameController,
-                      decoration: const InputDecoration(labelText: 'Company Name'),
+                      decoration:
+                          const InputDecoration(labelText: 'Company Name'),
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton(
@@ -281,77 +411,19 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showAuditLogs(BuildContext context, WidgetRef ref) {
+  void _showManageLocations(BuildContext context, WidgetRef ref) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
+        initialChildSize: 0.75,
         expand: false,
-        builder: (ctx, controller) => FutureBuilder(
-          future: ref
-              .read(supabaseProvider)
-              .from('audit_logs')
-              .select('*, profiles(full_name)')
-              .order('created_at', ascending: false)
-              .limit(50),
-          builder: (ctx, snapshot) {
-            if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-            final logs = snapshot.data as List;
-            return Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text('Audit Logs', style: Theme.of(context).textTheme.titleLarge),
-                ),
-                Expanded(
-                  child: ListView.separated(
-                    controller: controller,
-                    itemCount: logs.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (_, i) {
-                      final log = logs[i] as Map<String, dynamic>;
-                      final userName = log['profiles'] != null
-                          ? (log['profiles'] as Map)['full_name'] as String?
-                          : 'Unknown';
-                      return ListTile(
-                        leading: const Icon(
-                          Icons.history_rounded,
-                          size: 20,
-                          color: AppColors.secondary400,
-                        ),
-                        title: Text(
-                          log['action'] as String? ?? '',
-                          style: Theme.of(context).textTheme.titleSmall,
-                        ),
-                        subtitle: Text(
-                          '$userName • ${log['entity_type']}',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                        trailing: Text(
-                          _formatTime(DateTime.parse(log['created_at'] as String)),
-                          style: Theme.of(context).textTheme.labelSmall,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
+        builder: (ctx, controller) => _LocationsManager(
+            scrollController: controller, ref: ref),
       ),
     );
-  }
-
-  String _formatTime(DateTime dt) {
-    final diff = DateTime.now().difference(dt);
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    return '${dt.day}/${dt.month} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
   }
 
   Future<void> _confirmSignOut(BuildContext context, WidgetRef ref) async {
@@ -360,6 +432,169 @@ class SettingsScreen extends ConsumerWidget {
     ref.invalidate(dashboardStatsProvider);
     if (!context.mounted) return;
     context.go('/login');
+  }
+}
+
+class _LocationsManager extends StatefulWidget {
+  final ScrollController scrollController;
+  final WidgetRef ref;
+  const _LocationsManager(
+      {required this.scrollController, required this.ref});
+
+  @override
+  State<_LocationsManager> createState() => _LocationsManagerState();
+}
+
+class _LocationsManagerState extends State<_LocationsManager> {
+  List<Map<String, dynamic>> _locations = [];
+  bool _isLoading = true;
+  final _nameController = TextEditingController();
+  final _addressController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLocations();
+  }
+
+  Future<void> _loadLocations() async {
+    try {
+      final data = await widget.ref
+          .read(supabaseProvider)
+          .from('locations')
+          .select()
+          .order('name');
+      setState(() {
+        _locations = (data as List).cast<Map<String, dynamic>>();
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _toggleLocation(String id, bool currentActive) async {
+    await widget.ref
+        .read(supabaseProvider)
+        .from('locations')
+        .update({'is_active': !currentActive}).eq('id', id);
+    _loadLocations();
+  }
+
+  Future<void> _addLocation() async {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) return;
+    final user = widget.ref.read(supabaseProvider).auth.currentUser;
+    await widget.ref.read(supabaseProvider).from('locations').insert({
+      'name': name,
+      'address':
+          _addressController.text.trim().isEmpty ? null : _addressController.text.trim(),
+      'is_active': true,
+      'created_by': user?.id,
+    });
+    _nameController.clear();
+    _addressController.clear();
+    _loadLocations();
+    if (mounted) Navigator.pop(context);
+  }
+
+  void _showAddLocation() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Add Location'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: _nameController,
+              decoration: const InputDecoration(labelText: 'Location Name *'),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _addressController,
+              decoration: const InputDecoration(labelText: 'Address'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: _addLocation, child: const Text('Add')),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Text('Manage Locations',
+                  style: Theme.of(context).textTheme.titleLarge),
+              const Spacer(),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.add_rounded, size: 16),
+                label: const Text('Add'),
+                style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(80, 36)),
+                onPressed: _showAddLocation,
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _locations.isEmpty
+                  ? const Center(child: Text('No locations found'))
+                  : ListView.separated(
+                      controller: widget.scrollController,
+                      itemCount: _locations.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (_, i) {
+                        final loc = _locations[i];
+                        final isActive = loc['is_active'] as bool? ?? true;
+                        return ListTile(
+                          leading: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: isActive
+                                  ? AppColors.success50
+                                  : AppColors.secondary100,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(Icons.location_on_rounded,
+                                color: isActive
+                                    ? AppColors.success600
+                                    : AppColors.secondary400,
+                                size: 20),
+                          ),
+                          title: Text(loc['name'] as String? ?? ''),
+                          subtitle: loc['address'] != null
+                              ? Text(loc['address'] as String,
+                                  style: const TextStyle(fontSize: 12))
+                              : null,
+                          trailing: Switch(
+                            value: isActive,
+                            onChanged: (_) =>
+                                _toggleLocation(loc['id'] as String, isActive),
+                            activeColor: AppColors.success500,
+                          ),
+                        );
+                      },
+                    ),
+        ),
+      ],
+    );
   }
 }
 
@@ -373,7 +608,10 @@ class _SectionTitle extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
       child: Text(
         title,
-        style: Theme.of(context).textTheme.labelLarge?.copyWith(color: AppColors.primary500),
+        style: Theme.of(context)
+            .textTheme
+            .labelLarge
+            ?.copyWith(color: AppColors.primary500),
       ),
     );
   }
