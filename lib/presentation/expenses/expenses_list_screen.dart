@@ -824,21 +824,56 @@ class AttachmentViewerScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.black,
       appBar: AppBar(
-        title: Text(fileName),
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(fileName,
+            style: const TextStyle(color: Colors.white, fontSize: 14)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.share_rounded, color: Colors.white),
+            onPressed: () async {
+              await Share.shareUri(Uri.parse(fileUrl));
+            },
+          ),
+        ],
       ),
       body: isPdf
-          ? SfPdfViewer.network(
-              fileUrl,
-            )
-          : PhotoView(
-              imageProvider: NetworkImage(
-                fileUrl,
+          ? SfPdfViewer.network(fileUrl)
+          : InteractiveViewer(
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: Center(
+                child: Image.network(
+                  fileUrl,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return const Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    );
+                  },
+                  errorBuilder: (context, error, stack) => Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.broken_image_rounded,
+                          color: Colors.white54, size: 64),
+                      const SizedBox(height: 16),
+                      const Text('Could not load image',
+                          style: TextStyle(color: Colors.white54)),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () async {
+                          await Share.shareUri(Uri.parse(fileUrl));
+                        },
+                        child: const Text('Open in browser',
+                            style: TextStyle(color: Colors.white70)),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              minScale:
-                  PhotoViewComputedScale.contained,
-              maxScale:
-                  PhotoViewComputedScale.covered * 4,
             ),
     );
   }
