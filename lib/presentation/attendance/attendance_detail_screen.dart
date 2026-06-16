@@ -108,8 +108,8 @@ class _AttendanceDetailBody extends StatelessWidget {
             'Attendance - ${DateFormat('dd MMM yyyy').format(attendance.attendanceDate)}'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.picture_as_pdf_rounded),
-            tooltip: 'Export PDF',
+            icon: const Icon(Icons.share_rounded),
+            tooltip: 'Share',
             onPressed: () => _exportPdf(context),
           ),
         ],
