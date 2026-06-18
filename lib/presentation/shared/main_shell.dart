@@ -13,19 +13,8 @@ class MainShell extends ConsumerWidget {
     required this.child,
   });
 
-  int _calculateIndex(String location, bool isAdmin) {
-    final items = isAdmin
-        ? [
-            '/employees',
-            '/dashboard',
-            '/supervisors',
-          ]
-        : [
-            '/dashboard',
-            '/attendance',
-            '/expenses',
-            '/reports',
-          ];
+  int _calculateIndex(String location, String role) {
+    final items = _itemPaths(role);
 
     for (int i = 0; i < items.length; i++) {
       if (location.startsWith(items[i])) {
@@ -33,13 +22,24 @@ class MainShell extends ConsumerWidget {
       }
     }
 
-    return isAdmin ? 1 : 0;
+    return role == 'admin' ? 1 : 0;
+  }
+
+  List<String> _itemPaths(String role) {
+    if (role == 'admin') {
+      return ['/employees', '/dashboard', '/supervisors'];
+    }
+    if (role == 'employee') {
+      return ['/dashboard', '/notifications', '/settings'];
+    }
+    // supervisor (default)
+    return ['/dashboard', '/attendance', '/expenses', '/reports'];
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(currentProfileProvider).valueOrNull;
-    final isAdmin = profile?.isAdmin ?? false;
+    final role = profile?.role ?? 'supervisor';
 
     final adminItems = [
       const _NavItem(
@@ -89,9 +89,40 @@ class MainShell extends ConsumerWidget {
       ),
     ];
 
-    final items = isAdmin ? adminItems : supervisorItems;
+    // Employee gets a minimal, self-contained nav: their dashboard already
+    // shows attendance + payroll history inline, so they only need
+    // Dashboard, Notifications, and Settings — not the supervisor-only
+    // screens (Attendance/Expenses/Reports), which query by supervisor_id
+    // and would break or show nothing meaningful for an employee profile.
+    final employeeItems = [
+      const _NavItem(
+        icon: Icons.dashboard_outlined,
+        activeIcon: Icons.dashboard_rounded,
+        label: 'Dashboard',
+        path: '/dashboard',
+      ),
+      const _NavItem(
+        icon: Icons.notifications_outlined,
+        activeIcon: Icons.notifications_rounded,
+        label: 'Notifications',
+        path: '/notifications',
+      ),
+      const _NavItem(
+        icon: Icons.settings_outlined,
+        activeIcon: Icons.settings_rounded,
+        label: 'Settings',
+        path: '/settings',
+      ),
+    ];
+
+    final items = role == 'admin'
+        ? adminItems
+        : role == 'employee'
+            ? employeeItems
+            : supervisorItems;
+
     final location = GoRouterState.of(context).matchedLocation;
-    final selectedIndex = _calculateIndex(location, isAdmin);
+    final selectedIndex = _calculateIndex(location, role);
 
     return Scaffold(
       body: child,
