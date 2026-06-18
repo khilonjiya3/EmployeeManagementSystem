@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:typed_data';
+import 'package:intl/intl.dart';
 import '../../core/errors/exceptions.dart' as app_errors;
 
 import '../models/app_models.dart';
@@ -138,6 +139,25 @@ class EmployeeRepository {
     return EmployeeModel.fromJson(data);
   }
 
+  Future<EmployeeModel?> getByProfileId(String profileId) async {
+    final data = await _client
+        .from('employees')
+        .select('*, departments(name)')
+        .eq('profile_id', profileId)
+        .maybeSingle();
+    if (data == null) return null;
+    return EmployeeModel.fromJson(data);
+  }
+
+  Future<String?> getSupervisorIdForEmployee(String employeeId) async {
+    final data = await _client
+        .from('supervisor_employees')
+        .select('supervisor_id')
+        .eq('employee_id', employeeId)
+        .maybeSingle();
+    return data?['supervisor_id'] as String?;
+  }
+
   Future<EmployeeModel> create(Map<String, dynamic> data) async {
     final code = await _client.rpc('generate_employee_code') as String;
     data['employee_code'] = code;
@@ -159,6 +179,27 @@ class EmployeeRepository {
 
     await _logAudit('employee_created', 'employees', result['id'] as String, null, result);
     return EmployeeModel.fromJson(result);
+  }
+
+  /// Creates login credentials for an existing employee record.
+  /// Calls an edge function similar to create-supervisor.
+  Future<EmployeeModel> createLogin(String employeeId, String employeeCode) async {
+    final email = '${employeeCode.toUpperCase()}@ems.com';
+    final response = await _client.functions.invoke(
+      'create-employee-login',
+      body: {
+        'email': email,
+        'password': 'Abcd@123',
+        'employee_id': employeeId,
+        'must_change_password': true,
+      },
+    );
+    final responseData = response.data as Map<String, dynamic>?;
+    if (response.status != 200) {
+      throw Exception(responseData?['error'] ?? 'Failed to create employee login');
+    }
+    final result = await getById(employeeId);
+    return result!;
   }
 
   Future<EmployeeModel> update(String id, Map<String, dynamic> data) async {
@@ -202,6 +243,41 @@ class EmployeeRepository {
         ? await _client.from('employees').select('id')
         : await _client.from('employees').select('id').eq('status', status);
     return (data as List).length;
+  }
+
+  /// Own attendance records for the logged-in employee (bug #8)
+  Future<List<AttendanceDetailModel>> getOwnAttendance(
+    String employeeId, {
+    DateTime? fromDate,
+    DateTime? toDate,
+  }) async {
+    var filterQuery = _client
+        .from('attendance_details')
+        .select('*, attendance!inner(attendance_date, location_name, is_approved)')
+        .eq('employee_id', employeeId);
+
+    if (fromDate != null) {
+      filterQuery = filterQuery.gte(
+          'attendance.attendance_date', fromDate.toIso8601String().split('T').first);
+    }
+    if (toDate != null) {
+      filterQuery = filterQuery.lte(
+          'attendance.attendance_date', toDate.toIso8601String().split('T').first);
+    }
+
+    final data = await filterQuery;
+    return (data as List).map((d) {
+      final att = d['attendance'] as Map<String, dynamic>?;
+      return AttendanceDetailModel(
+        id: d['id'] as String,
+        attendanceId: d['attendance_id'] as String,
+        employeeId: d['employee_id'] as String,
+        status: d['status'] as String,
+        overtimeHours: (d['overtime_hours'] as num?)?.toDouble() ?? 0,
+        remarks: d['remarks'] as String?,
+        createdAt: DateTime.parse(d['created_at'] as String),
+      );
+    }).toList();
   }
 
   Future<void> _logAudit(String action, String entity, String entityId,
@@ -288,7 +364,25 @@ class SupervisorRepository {
         .eq('supervisor_code', supervisorCode)
         .single();
 
-    return SupervisorModel.fromJson(supervisor);
+    final created = SupervisorModel.fromJson(supervisor);
+
+    // Apply UPI/bank fields if provided (create-supervisor edge function may not handle these)
+    final extra = <String, dynamic>{};
+    if (supervisorData['upi_id'] != null) extra['upi_id'] = supervisorData['upi_id'];
+    if (supervisorData['bank_account_number'] != null) extra['bank_account_number'] = supervisorData['bank_account_number'];
+    if (supervisorData['bank_ifsc'] != null) extra['bank_ifsc'] = supervisorData['bank_ifsc'];
+    if (supervisorData['bank_name'] != null) extra['bank_name'] = supervisorData['bank_name'];
+    if (extra.isNotEmpty) {
+      final updated = await _client
+          .from('supervisors')
+          .update(extra)
+          .eq('id', created.id)
+          .select()
+          .single();
+      return SupervisorModel.fromJson(updated);
+    }
+
+    return created;
   }
 
   Future<SupervisorModel> update(String id, Map<String, dynamic> data) async {
@@ -447,7 +541,6 @@ class AttendanceRepository {
         detailsData.map((d) => {...d, 'attendance_id': attendanceId}).toList();
     await _client.from('attendance_details').insert(details);
 
-    // Notify all admins
     await _notifyAdmins(
       title: 'New Attendance Submitted',
       body: 'Attendance submitted for ${attendanceData['attendance_date']}',
@@ -479,7 +572,6 @@ class AttendanceRepository {
       );
     }
 
-    // Notify admins of resubmission
     await _notifyAdmins(
       title: 'Attendance Resubmitted',
       body: 'Attendance has been edited and resubmitted for approval',
@@ -505,7 +597,6 @@ class AttendanceRepository {
       'approved_at': DateTime.now().toIso8601String(),
     }).eq('id', attendanceId);
 
-    // Notify supervisor
     if (att != null) {
       await _notifySupervisor(
         supervisorId: att['supervisor_id'] as String,
@@ -519,6 +610,7 @@ class AttendanceRepository {
     await _logAudit('attendance_approved', 'attendance', attendanceId);
   }
 
+  /// Today's summary scoped correctly (used by dashboard, already date-filtered by definition)
   Future<Map<String, int>> getTodaySummary() async {
     final today = DateTime.now().toIso8601String().split('T').first;
     final attendance = await _client
@@ -672,10 +764,9 @@ class ExpenseRepository {
 
     await _logAudit('expense_submitted', 'expenses', expenseId);
 
-    // Notify admins
     await _notifyAdmins(
       title: 'New Expense Submitted',
-      body: '${data['expense_name']} - ₹${data['amount']}',
+      body: '${data['expense_name']} - Rs.${data['amount']}',
       type: 'expense',
       referenceId: expenseId,
     );
@@ -713,7 +804,7 @@ class ExpenseRepository {
       await _notifySupervisor(
         supervisorId: exp['supervisor_id'] as String,
         title: 'Expense Approved',
-        body: '${exp['expense_name']} ₹${exp['amount']} has been approved',
+        body: '${exp['expense_name']} Rs.${exp['amount']} has been approved',
         type: 'expense_approved',
         referenceId: id,
       );
@@ -756,7 +847,7 @@ class ExpenseRepository {
     await _client.storage.from('expense_receipts').uploadBinary(
           path,
           Uint8List.fromList(bytes),
-          fileOptions: FileOptions(contentType: mimeType),
+          fileOptions: FileOptions(contentType: mimeType, upsert: true),
         );
     final url =
         _client.storage.from('expense_receipts').getPublicUrl(path);
@@ -771,9 +862,18 @@ class ExpenseRepository {
     return url;
   }
 
-  Future<Map<String, dynamic>> getSummary() async {
-    final data =
-        await _client.from('expenses').select('status, amount');
+  /// CURRENT MONTH ONLY summary used by dashboard (fixes bug #4 expense part)
+  Future<Map<String, dynamic>> getSummary({DateTime? fromDate, DateTime? toDate}) async {
+    var filterQuery = _client.from('expenses').select('status, amount');
+    if (fromDate != null) {
+      filterQuery = filterQuery.gte(
+          'expense_date', fromDate.toIso8601String().split('T').first);
+    }
+    if (toDate != null) {
+      filterQuery = filterQuery.lte(
+          'expense_date', toDate.toIso8601String().split('T').first);
+    }
+    final data = await filterQuery;
     final summary = {
       'pending': 0.0,
       'approved': 0.0,
@@ -787,6 +887,24 @@ class ExpenseRepository {
       summary['total'] = (summary['total'] ?? 0) + amount;
     }
     return summary;
+  }
+
+  /// Expenses grouped by supervisor then by month (bug #9 drilldown)
+  Future<Map<String, List<ExpenseModel>>> getGroupedBySupervisor({
+    String? status,
+  }) async {
+    var filterQuery = _client
+        .from('expenses')
+        .select('*, supervisors(name), expense_attachments(*)');
+    if (status != null) filterQuery = filterQuery.eq('status', status);
+    final data = await filterQuery.order('expense_date', ascending: false);
+
+    final grouped = <String, List<ExpenseModel>>{};
+    for (final row in data as List) {
+      final exp = ExpenseModel.fromJson(row as Map<String, dynamic>);
+      grouped.putIfAbsent(exp.supervisorId, () => []).add(exp);
+    }
+    return grouped;
   }
 
   Future<void> _notifyAdmins({
@@ -890,6 +1008,20 @@ class PayrollRepository {
     return PayrollModel.fromJson(data);
   }
 
+  /// Own payroll history for logged-in employee (bug #8)
+  Future<List<PayrollModel>> getOwnPayrollHistory(String employeeId, {int limit = 12}) async {
+    final data = await _client
+        .from('payroll')
+        .select('*, employees(name, employee_code)')
+        .eq('employee_id', employeeId)
+        .order('payroll_year', ascending: false)
+        .order('payroll_month', ascending: false)
+        .limit(limit);
+    return (data as List)
+        .map((p) => PayrollModel.fromJson(p as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<PayrollModel> processPayroll(
       String employeeId, int month, int year) async {
     final summary = await _client.rpc('get_monthly_attendance_summary', params: {
@@ -969,6 +1101,20 @@ class PayrollRepository {
     }).eq('id', id);
   }
 
+  /// UPI payment confirm (used by payment flow)
+  Future<void> confirmPayment(String id, {String? utrReference}) async {
+    await _client.from('payroll').update({
+      'status': 'paid',
+      'payment_status': 'paid',
+      'payment_method': 'upi',
+      'utr_reference': utrReference,
+      'paid_at': DateTime.now().toIso8601String(),
+      'payment_confirmed_at': DateTime.now().toIso8601String(),
+      'payment_confirmed_by': _client.auth.currentUser?.id,
+    }).eq('id', id);
+  }
+
+  /// CURRENT MONTH liability/paid/pending — already scoped by month/year params
   Future<Map<String, double>> getMonthlySummary(int month, int year) async {
     final data = await _client
         .from('payroll')
@@ -987,18 +1133,140 @@ class PayrollRepository {
   }
 }
 
+final paymentRepositoryProvider = Provider<PaymentRepository>((ref) {
+  return PaymentRepository(ref.watch(supabaseProvider));
+});
+
+class PaymentRepository {
+  final SupabaseClient _client;
+  PaymentRepository(this._client);
+
+  /// Builds the UPI deep link URL to launch a payment app
+  String buildUpiUri({
+    required String upiId,
+    required String payeeName,
+    required double amount,
+    required String referenceNote,
+  }) {
+    final amt = amount.toStringAsFixed(2);
+    final encodedName = Uri.encodeComponent(payeeName);
+    final encodedNote = Uri.encodeComponent(referenceNote);
+    return 'upi://pay?pa=$upiId&pn=$encodedName&am=$amt&cu=INR&tn=$encodedNote';
+  }
+
+  Future<void> logPayment({
+    required String referenceType,
+    required String referenceId,
+    String? employeeId,
+    String? supervisorId,
+    required double amount,
+    String? upiId,
+    String paymentStatus = 'initiated',
+    String? utrReference,
+    String? remarks,
+  }) async {
+    await _client.from('payment_logs').insert({
+      'reference_type': referenceType,
+      'reference_id': referenceId,
+      'employee_id': employeeId,
+      'supervisor_id': supervisorId,
+      'amount': amount,
+      'upi_id': upiId,
+      'payment_method': 'upi',
+      'payment_status': paymentStatus,
+      'utr_reference': utrReference,
+      'initiated_by': _client.auth.currentUser?.id,
+      'confirmed_at': paymentStatus == 'paid' ? DateTime.now().toIso8601String() : null,
+      'confirmed_by': paymentStatus == 'paid' ? _client.auth.currentUser?.id : null,
+      'remarks': remarks,
+    });
+  }
+
+  Future<List<PaymentLogModel>> getHistory({String? referenceType, String? referenceId}) async {
+    var filterQuery = _client.from('payment_logs').select();
+    if (referenceType != null) filterQuery = filterQuery.eq('reference_type', referenceType);
+    if (referenceId != null) filterQuery = filterQuery.eq('reference_id', referenceId);
+    final data = await filterQuery.order('initiated_at', ascending: false);
+    return (data as List)
+        .map((p) => PaymentLogModel.fromJson(p as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<void> confirmExpensePayment(String expenseId, {String? utrReference}) async {
+    await _client.from('expenses').update({
+      'payment_status': 'paid',
+      'payment_method': 'upi',
+      'utr_reference': utrReference,
+      'payment_confirmed_at': DateTime.now().toIso8601String(),
+      'payment_confirmed_by': _client.auth.currentUser?.id,
+    }).eq('id', expenseId);
+  }
+}
+
+final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
+  return NotificationRepository(ref.watch(supabaseProvider));
+});
+
+class NotificationRepository {
+  final SupabaseClient _client;
+  NotificationRepository(this._client);
+
+  Future<List<NotificationModel>> getForCurrentUser({int limit = 50}) async {
+    final user = _client.auth.currentUser;
+    if (user == null) return [];
+    final data = await _client
+        .from('notifications')
+        .select()
+        .eq('user_id', user.id)
+        .order('created_at', ascending: false)
+        .limit(limit);
+    return (data as List)
+        .map((n) => NotificationModel.fromJson(n as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<int> getUnreadCount() async {
+    final user = _client.auth.currentUser;
+    if (user == null) return 0;
+    final res = await _client
+        .from('notifications')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('is_read', false);
+    return (res as List).length;
+  }
+
+  Future<void> markRead(String id) async {
+    await _client.from('notifications').update({'is_read': true}).eq('id', id);
+  }
+
+  Future<void> markAllRead() async {
+    final user = _client.auth.currentUser;
+    if (user == null) return;
+    await _client
+        .from('notifications')
+        .update({'is_read': true})
+        .eq('user_id', user.id);
+  }
+}
+
+/// Dashboard stats — now autoDispose (bug #4 fix: stops permanent caching) and
+/// expense summary is scoped to CURRENT MONTH ONLY (was all-time before).
 final dashboardStatsProvider =
-    FutureProvider<Map<String, dynamic>>((ref) async {
+    FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   final client = ref.read(supabaseProvider);
   final now = DateTime.now();
+  final monthStart = DateTime(now.year, now.month, 1);
+  final monthEnd = DateTime(now.year, now.month + 1, 0);
 
   final totalEmp = await client.from('employees').select('id');
   final activeEmp =
       await client.from('employees').select('id').eq('status', 'active');
   final todayAttendance =
       await ref.read(attendanceRepositoryProvider).getTodaySummary();
-  final expenseSummary =
-      await ref.read(expenseRepositoryProvider).getSummary();
+  final expenseSummary = await ref
+      .read(expenseRepositoryProvider)
+      .getSummary(fromDate: monthStart, toDate: monthEnd);
   final payrollSummary = await ref
       .read(payrollRepositoryProvider)
       .getMonthlySummary(now.month, now.year);
