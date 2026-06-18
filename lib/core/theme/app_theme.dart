@@ -65,6 +65,27 @@ class AppColors {
   static const surfaceDark = Color(0xFF1A2236);
   static const backgroundDark = Color(0xFF0F1623);
   static const cardDark = Color(0xFF1E293B);
+
+  // ── Pink/Purple pastel theme ──
+  static const pink50 = Color(0xFFFFF5FB);
+  static const pink100 = Color(0xFFFFE6F4);
+  static const pink200 = Color(0xFFFFCCE9);
+  static const pink300 = Color(0xFFFFA8D8);
+  static const pink400 = Color(0xFFFF85C8);
+  static const pink500 = Color(0xFFEC5FAE);
+
+  static const purple50 = Color(0xFFF7F2FF);
+  static const purple100 = Color(0xFFECE0FF);
+  static const purple200 = Color(0xFFDCC4FF);
+  static const purple300 = Color(0xFFC59CFB);
+  static const purple400 = Color(0xFFA873EE);
+  static const purple500 = Color(0xFF8E5BDB);
+  static const purple600 = Color(0xFF7444BE);
+  static const purple700 = Color(0xFF5C36994);
+  static const purple900 = Color(0xFF3B2466);
+
+  static const pinkPurpleSurface = Color(0xFFFFF9FD);
+  static const pinkPurpleBackground = Color(0xFFFDF6FC);
 }
 
 class AppTheme {
@@ -294,5 +315,180 @@ class AppTheme {
       bodySmall: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w400, fontSize: 12, height: 1.4, color: AppColors.secondary400),
     ),
   );
-}
 
+  /// New: pastel pink + purple alternate theme
+  static final pinkPurpleTheme = ThemeData(
+    useMaterial3: true,
+    brightness: Brightness.light,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: AppColors.purple500,
+      brightness: Brightness.light,
+      primary: AppColors.purple500,
+      secondary: AppColors.pink500,
+      surface: AppColors.pinkPurpleSurface,
+      background: AppColors.pinkPurpleBackground,
+      error: AppColors.error500,
+    ),
+    fontFamily: 'Inter',
+    scaffoldBackgroundColor: AppColors.pinkPurpleBackground,
+    appBarTheme: AppBarTheme(
+      backgroundColor: AppColors.pinkPurpleSurface,
+      elevation: 0,
+      scrolledUnderElevation: 1,
+      shadowColor: AppColors.pink100,
+      centerTitle: false,
+      titleTextStyle: const TextStyle(
+        fontFamily: 'Inter',
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+        color: AppColors.purple900,
+        letterSpacing: -0.2,
+      ),
+      iconTheme: const IconThemeData(color: AppColors.purple600, size: 22),
+    ),
+    cardTheme: CardThemeData(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: AppColors.pink200, width: 1),
+      ),
+      color: AppColors.white,
+      surfaceTintColor: Colors.transparent,
+      margin: const EdgeInsets.all(0),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: AppColors.pink50,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: AppColors.pink200),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: AppColors.pink200),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: AppColors.purple500, width: 1.5),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: AppColors.error500),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: AppColors.error500, width: 1.5),
+      ),
+      labelStyle: const TextStyle(
+        fontFamily: 'Inter',
+        color: AppColors.purple400,
+        fontSize: 14,
+      ),
+      hintStyle: const TextStyle(
+        fontFamily: 'Inter',
+        color: AppColors.pink300,
+        fontSize: 14,
+      ),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppColors.purple500,
+        foregroundColor: AppColors.white,
+        elevation: 0,
+        minimumSize: const Size(double.infinity, 52),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        textStyle: const TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.1,
+        ),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppColors.purple500,
+        side: const BorderSide(color: AppColors.purple500),
+        minimumSize: const Size(double.infinity, 52),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        textStyle: const TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: AppColors.purple500,
+        textStyle: const TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    ),
+    chipTheme: ChipThemeData(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      side: BorderSide.none,
+      backgroundColor: AppColors.pink100,
+      selectedColor: AppColors.purple100,
+      labelStyle: const TextStyle(
+        fontFamily: 'Inter',
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+      ),
+    ),
+    dividerTheme: const DividerThemeData(
+      color: AppColors.pink100,
+      thickness: 1,
+      space: 1,
+    ),
+    listTileTheme: const ListTileThemeData(
+      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+    ),
+    textTheme: const TextTheme(
+      displayLarge: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w700, fontSize: 32, letterSpacing: -0.5, color: AppColors.purple900),
+      displayMedium: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w700, fontSize: 28, letterSpacing: -0.5, color: AppColors.purple900),
+      displaySmall: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600, fontSize: 24, letterSpacing: -0.3, color: AppColors.purple900),
+      headlineLarge: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600, fontSize: 22, letterSpacing: -0.2, color: AppColors.purple900),
+      headlineMedium: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600, fontSize: 18, letterSpacing: -0.2, color: AppColors.purple900),
+      headlineSmall: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600, fontSize: 16, color: AppColors.purple900),
+      titleLarge: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600, fontSize: 15, color: AppColors.purple700),
+      titleMedium: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w500, fontSize: 14, color: AppColors.purple600),
+      titleSmall: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w500, fontSize: 13, color: AppColors.purple600),
+      bodyLarge: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w400, fontSize: 15, height: 1.5, color: AppColors.secondary800),
+      bodyMedium: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w400, fontSize: 14, height: 1.5, color: AppColors.secondary700),
+      bodySmall: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w400, fontSize: 12, height: 1.4, color: AppColors.secondary500),
+      labelLarge: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600, fontSize: 14, color: AppColors.purple600),
+      labelMedium: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w500, fontSize: 12, color: AppColors.secondary600),
+      labelSmall: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w500, fontSize: 11, color: AppColors.secondary500),
+    ),
+    bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      type: BottomNavigationBarType.fixed,
+      selectedItemColor: AppColors.purple500,
+      unselectedItemColor: AppColors.pink300,
+      backgroundColor: AppColors.white,
+      elevation: 8,
+      selectedLabelStyle: TextStyle(fontFamily: 'Inter', fontSize: 11, fontWeight: FontWeight.w600),
+      unselectedLabelStyle: TextStyle(fontFamily: 'Inter', fontSize: 11, fontWeight: FontWeight.w400),
+    ),
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: AppColors.purple500,
+      foregroundColor: AppColors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 2,
+    ),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      contentTextStyle: const TextStyle(fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w500),
+    ),
+    dialogTheme: DialogThemeData(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      titleTextStyle: const TextStyle(fontFamily: 'Inter', fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.purple900),
+      contentTextStyle: const TextStyle(fontFamily: 'Inter', fontSize: 14, color: AppColors.secondary600),
+    ),
+  );
+}
