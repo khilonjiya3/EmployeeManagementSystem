@@ -97,9 +97,34 @@ class _EmployeesListScreenState extends ConsumerState<EmployeesListScreen> {
       appBar: AppBar(
         title: const Text('Employees'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_list_rounded),
-            onPressed: () => _showFilterSheet(context),
+          PopupMenuButton<String?>(
+            icon: Icon(
+              Icons.filter_list_rounded,
+              color: _selectedStatus != null ? AppColors.primary500 : null,
+            ),
+            tooltip: 'Filter by status',
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            onSelected: (value) {
+              setState(() => _selectedStatus = value);
+              ref.read(employeesProvider.notifier).filterStatus(value);
+            },
+            itemBuilder: (context) => [
+              CheckedPopupMenuItem<String?>(
+                value: null,
+                checked: _selectedStatus == null,
+                child: const Text('All'),
+              ),
+              CheckedPopupMenuItem<String?>(
+                value: 'active',
+                checked: _selectedStatus == 'active',
+                child: const Text('Active'),
+              ),
+              CheckedPopupMenuItem<String?>(
+                value: 'inactive',
+                checked: _selectedStatus == 'inactive',
+                child: const Text('Inactive'),
+              ),
+            ],
           ),
           IconButton(
             icon: const Icon(Icons.add_rounded),
