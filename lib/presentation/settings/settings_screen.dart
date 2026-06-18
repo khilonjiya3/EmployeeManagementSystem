@@ -481,27 +481,45 @@ class _LocationsManagerState extends State<_LocationsManager> {
     _loadLocations();
   }
 
-  Future<void> _addLocation() async {
+  Future<void> _addLocation(BuildContext dialogContext) async {
     final name = _nameController.text.trim();
     if (name.isEmpty) return;
+
+    // Close the dialog FIRST using its own context, before any async work.
+    // This is the fix for bug #6: the old code called Navigator.pop(context)
+    // using the _LocationsManagerState's context (the bottom sheet's context)
+    // instead of the dialog's own context, so the dialog never actually
+    // closed even though the insert succeeded.
+    Navigator.of(dialogContext).pop();
+
     final user = widget.ref.read(supabaseProvider).auth.currentUser;
-    await widget.ref.read(supabaseProvider).from('locations').insert({
-      'name': name,
-      'address':
-          _addressController.text.trim().isEmpty ? null : _addressController.text.trim(),
-      'is_active': true,
-      'created_by': user?.id,
-    });
-    _nameController.clear();
-    _addressController.clear();
-    _loadLocations();
-    if (mounted) Navigator.pop(context);
+    try {
+      await widget.ref.read(supabaseProvider).from('locations').insert({
+        'name': name,
+        'address': _addressController.text.trim().isEmpty
+            ? null
+            : _addressController.text.trim(),
+        'is_active': true,
+        'created_by': user?.id,
+      });
+      _nameController.clear();
+      _addressController.clear();
+      if (mounted) _loadLocations();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Error adding location: $e'),
+              backgroundColor: AppColors.error500),
+        );
+      }
+    }
   }
 
   void _showAddLocation() {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Add Location'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -519,10 +537,11 @@ class _LocationsManagerState extends State<_LocationsManager> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.of(dialogContext).pop(),
               child: const Text('Cancel')),
           FilledButton(
-              onPressed: _addLocation, child: const Text('Add')),
+              onPressed: () => _addLocation(dialogContext),
+              child: const Text('Add')),
         ],
       ),
     );
