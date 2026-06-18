@@ -197,8 +197,13 @@ class _SupervisorFormScreenState
   final _usernameController = TextEditingController();
   final _mobileController = TextEditingController();
   final _areaController = TextEditingController();
+  final _upiController = TextEditingController();
+  final _bankAccountController = TextEditingController();
+  final _bankIfscController = TextEditingController();
+  final _bankNameController = TextEditingController();
   bool _isActive = true;
   bool _isLoading = false;
+  bool _showBankDetails = false;
   File? _photoFile;
   String? _existingPhotoUrl;
   String? _existingSupervisorId;
@@ -223,9 +228,14 @@ class _SupervisorFormScreenState
     _usernameController.text = sup.email.replaceAll('@ems.com', '');
     _mobileController.text = sup.mobile ?? '';
     _areaController.text = sup.assignedArea ?? '';
+    _upiController.text = sup.upiId ?? '';
+    _bankAccountController.text = sup.bankAccountNumber ?? '';
+    _bankIfscController.text = sup.bankIfsc ?? '';
+    _bankNameController.text = sup.bankName ?? '';
     _isActive = sup.isActive;
     _existingPhotoUrl = sup.profilePhotoUrl;
     _existingSupervisorId = sup.id;
+    _showBankDetails = sup.hasUpi || (sup.bankAccountNumber?.isNotEmpty ?? false);
     setState(() {});
   }
 
@@ -235,6 +245,10 @@ class _SupervisorFormScreenState
     _usernameController.dispose();
     _mobileController.dispose();
     _areaController.dispose();
+    _upiController.dispose();
+    _bankAccountController.dispose();
+    _bankIfscController.dispose();
+    _bankNameController.dispose();
     super.dispose();
   }
 
@@ -264,6 +278,10 @@ class _SupervisorFormScreenState
             ? null
             : _areaController.text.trim(),
         'is_active': _isActive,
+        'upi_id': _upiController.text.trim().isEmpty ? null : _upiController.text.trim(),
+        'bank_account_number': _bankAccountController.text.trim().isEmpty ? null : _bankAccountController.text.trim(),
+        'bank_ifsc': _bankIfscController.text.trim().isEmpty ? null : _bankIfscController.text.trim().toUpperCase(),
+        'bank_name': _bankNameController.text.trim().isEmpty ? null : _bankNameController.text.trim(),
       };
 
       SupervisorModel supervisor;
@@ -310,6 +328,7 @@ class _SupervisorFormScreenState
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
           title:
@@ -401,6 +420,76 @@ class _SupervisorFormScreenState
                     labelText: 'Assigned Area',
                     prefixIcon: Icon(Icons.map_outlined)),
               ),
+              const SizedBox(height: 20),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: InkWell(
+                  onTap: () => setState(() => _showBankDetails = !_showBankDetails),
+                  child: Row(
+                    children: [
+                      Text(
+                        'Payment Details',
+                        style: theme.textTheme.titleMedium?.copyWith(color: AppColors.primary500),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(
+                        _showBankDetails ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                        color: AppColors.primary500,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Required for paying expense reimbursements via UPI',
+                  style: theme.textTheme.bodySmall?.copyWith(color: AppColors.secondary400),
+                ),
+              ),
+              if (_showBankDetails) ...[
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _upiController,
+                  decoration: const InputDecoration(
+                    labelText: 'UPI ID',
+                    hintText: 'name@bankupi',
+                    prefixIcon: Icon(Icons.account_balance_wallet_outlined),
+                  ),
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return null;
+                    if (!v.contains('@')) return 'Enter a valid UPI ID (e.g. name@bank)';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _bankAccountController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Bank Account Number',
+                    prefixIcon: Icon(Icons.account_balance_outlined),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _bankIfscController,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: const InputDecoration(
+                    labelText: 'IFSC Code',
+                    prefixIcon: Icon(Icons.pin_outlined),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _bankNameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Bank Name',
+                    prefixIcon: Icon(Icons.business_outlined),
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
               if (!isEditing)
                 Container(
@@ -531,6 +620,21 @@ class SupervisorDetailScreen extends ConsumerWidget {
                       icon: Icons.map_outlined,
                       label: 'Area',
                       value: sup.assignedArea!),
+                if (sup.hasUpi)
+                  _InfoRow(
+                      icon: Icons.account_balance_wallet_outlined,
+                      label: 'UPI ID',
+                      value: sup.upiId!),
+                if (sup.bankAccountNumber != null)
+                  _InfoRow(
+                      icon: Icons.account_balance_outlined,
+                      label: 'Account No.',
+                      value: sup.bankAccountNumber!),
+                if (sup.bankIfsc != null)
+                  _InfoRow(
+                      icon: Icons.pin_outlined,
+                      label: 'IFSC',
+                      value: sup.bankIfsc!),
                 const SizedBox(height: 24),
                 ElevatedButton.icon(
                   icon: const Icon(Icons.people_rounded, size: 18),
