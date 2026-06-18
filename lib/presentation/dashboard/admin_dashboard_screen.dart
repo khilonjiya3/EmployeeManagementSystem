@@ -9,6 +9,62 @@ import '../../core/utils/app_utils.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../shared/widgets.dart' as w;
 
+final _unreadNotificationCountProvider =
+    FutureProvider.autoDispose<int>((ref) async {
+  return ref.read(notificationRepositoryProvider).getUnreadCount();
+});
+
+class _NotificationBell extends ConsumerWidget {
+  final Color iconColor;
+  const _NotificationBell({this.iconColor = Colors.white});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final unread = ref.watch(_unreadNotificationCountProvider);
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        IconButton(
+          icon: Icon(Icons.notifications_outlined, color: iconColor),
+          onPressed: () async {
+            await context.push('/notifications');
+            ref.invalidate(_unreadNotificationCountProvider);
+          },
+        ),
+        unread.when(
+          data: (count) => count > 0
+              ? Positioned(
+                  right: 6,
+                  top: 6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                    decoration: BoxDecoration(
+                      color: AppColors.error500,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.white, width: 1),
+                    ),
+                    child: Text(
+                      count > 9 ? '9+' : '$count',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: 'Inter',
+                      ),
+                    ),
+                  ),
+                )
+              : const SizedBox.shrink(),
+          loading: () => const SizedBox.shrink(),
+          error: (_, __) => const SizedBox.shrink(),
+        ),
+      ],
+    );
+  }
+}
+
 class AdminDashboardScreen extends ConsumerWidget {
   const AdminDashboardScreen({super.key});
 
@@ -16,6 +72,7 @@ class AdminDashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final stats = ref.watch(dashboardStatsProvider);
     final profile = ref.watch(currentProfileProvider).valueOrNull;
+    final monthLabel = DateFormat('MMMM yyyy').format(DateTime.now());
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F6FA),
@@ -24,10 +81,7 @@ class AdminDashboardScreen extends ConsumerWidget {
         backgroundColor: Colors.white,
         elevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () => context.push('/notifications'),
-          ),
+          _NotificationBell(iconColor: AppColors.secondary700),
           IconButton(
             icon: const Icon(Icons.settings_outlined),
             onPressed: () => context.push('/settings'),
@@ -57,25 +111,30 @@ class AdminDashboardScreen extends ConsumerWidget {
                 const SizedBox(height: 8),
                 Text(e.toString(),
                     style: const TextStyle(color: Colors.red)),
-                const SizedBox(height: 8),
-                Text(
-                  stack.toString().substring(
-                      0, stack.toString().length > 500 ? 500 : stack.toString().length),
-                  style: const TextStyle(color: Colors.red, fontSize: 11),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.refresh_rounded, size: 16),
+                  label: const Text('Retry'),
+                  onPressed: () => ref.invalidate(dashboardStatsProvider),
                 ),
               ],
             ),
           ),
         ),
         data: (data) => RefreshIndicator(
-          onRefresh: () async => ref.invalidate(dashboardStatsProvider),
+          // Awaits the actual refetch so the spinner stays until fresh data
+          // arrives — this is the real-time/refresh fix for bug #4.
+          onRefresh: () async {
+            ref.invalidate(dashboardStatsProvider);
+            ref.invalidate(_unreadNotificationCountProvider);
+            await ref.read(dashboardStatsProvider.future);
+          },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Welcome card matching supervisor style
                 Container(
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
@@ -150,7 +209,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 20),
-                _DashboardBody(stats: data),
+                _DashboardBody(stats: data, monthLabel: monthLabel),
               ],
             ),
           ),
@@ -162,7 +221,8 @@ class AdminDashboardScreen extends ConsumerWidget {
 
 class _DashboardBody extends StatelessWidget {
   final Map<String, dynamic> stats;
-  const _DashboardBody({required this.stats});
+  final String monthLabel;
+  const _DashboardBody({required this.stats, required this.monthLabel});
 
   @override
   Widget build(BuildContext context) {
@@ -226,7 +286,7 @@ class _DashboardBody extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 24),
-          _sectionLabel("Expense Overview"),
+          _sectionLabel("Expense Overview · $monthLabel"),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -252,7 +312,7 @@ class _DashboardBody extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 24),
-          _sectionLabel("Payroll Overview"),
+          _sectionLabel("Payroll Overview · $monthLabel"),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -476,17 +536,21 @@ class _SupervisorDashboardScreenState
   }
 
   Future<void> _refresh() async {
-    setState(() {
-      _statsFuture = _loadSupervisorStats(
-        ref,
-        ref.read(currentProfileProvider).valueOrNull?.id,
-      );
-    });
+    final future = _loadSupervisorStats(
+      ref,
+      ref.read(currentProfileProvider).valueOrNull?.id,
+    );
+    setState(() => _statsFuture = future);
+    ref.invalidate(_unreadNotificationCountProvider);
+    // Await so RefreshIndicator's spinner stays until data actually arrives
+    // (real-time/refresh fix for bug #4, supervisor side).
+    await future;
   }
 
   @override
   Widget build(BuildContext context) {
     final profile = ref.watch(currentProfileProvider).valueOrNull;
+    final monthLabel = DateFormat('MMMM yyyy').format(DateTime.now());
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F6FA),
@@ -495,10 +559,7 @@ class _SupervisorDashboardScreenState
         backgroundColor: Colors.white,
         elevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () => context.push('/notifications'),
-          ),
+          _NotificationBell(iconColor: AppColors.secondary700),
           IconButton(
             icon: const Icon(Icons.settings_outlined),
             onPressed: () => context.push('/settings'),
@@ -525,7 +586,6 @@ class _SupervisorDashboardScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header card
                   Container(
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
@@ -606,9 +666,9 @@ class _SupervisorDashboardScreenState
 
                   const SizedBox(height: 24),
 
-                  const Text(
+                  Text(
                     "Today's Status",
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
                       fontFamily: 'Inter',
@@ -647,6 +707,18 @@ class _SupervisorDashboardScreenState
                   ),
 
                   const SizedBox(height: 12),
+
+                  Text(
+                    "Expenses · $monthLabel",
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      fontFamily: 'Inter',
+                      color: Color(0xFF8A8FA3),
+                    ),
+                  ),
+
+                  const SizedBox(height: 8),
 
                   Row(
                     children: [
@@ -758,6 +830,9 @@ class _SupervisorDashboardScreenState
         .eq('supervisor_id', supervisorId);
 
     final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final now = DateTime.now();
+    final monthStart = DateFormat('yyyy-MM-dd').format(DateTime(now.year, now.month, 1));
+    final monthEnd = DateFormat('yyyy-MM-dd').format(DateTime(now.year, now.month + 1, 0));
 
     final todayAtt = await client
         .from('attendance')
@@ -766,25 +841,28 @@ class _SupervisorDashboardScreenState
         .eq('attendance_date', today)
         .maybeSingle();
 
-    final pendingToday = await client
+    // Current-month scoped (bug #4 fix on supervisor side too — was 'today' only before)
+    final pendingThisMonth = await client
         .from('expenses')
         .select('id')
         .eq('supervisor_id', supervisorId)
-        .eq('expense_date', today)
+        .gte('expense_date', monthStart)
+        .lte('expense_date', monthEnd)
         .eq('status', 'pending');
 
-    final approvedToday = await client
+    final approvedThisMonth = await client
         .from('expenses')
         .select('id')
         .eq('supervisor_id', supervisorId)
-        .eq('expense_date', today)
+        .gte('expense_date', monthStart)
+        .lte('expense_date', monthEnd)
         .eq('status', 'approved');
 
     return {
       'total_employees': (employees as List).length,
       'today_submitted': todayAtt != null,
-      'pending_today': (pendingToday as List).length,
-      'approved_today': (approvedToday as List).length,
+      'pending_today': (pendingThisMonth as List).length,
+      'approved_today': (approvedThisMonth as List).length,
     };
   }
 }
