@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../data/models/app_models.dart';
+import '../../data/repositories/auth_repository.dart';
 
 import '../../core/theme/app_theme.dart';
 
@@ -323,6 +327,242 @@ class ConfirmDialog extends StatelessWidget {
           onPressed: () => Navigator.pop(context, true),
           style: FilledButton.styleFrom(backgroundColor: confirmColor ?? AppColors.error500),
           child: Text(confirmLabel ?? 'Confirm'),
+        ),
+      ],
+    );
+  }
+}
+
+
+/// Shared UPI payment flow used by both expense and payroll PAY buttons.
+/// Launches the recipient's UPI app via deep link, then asks the admin to
+/// confirm whether the payment succeeded and optionally enter a UTR number.
+class UpiPaymentHelper {
+  UpiPaymentHelper._();
+
+  static Future<void> payExpense(
+    BuildContext context,
+    WidgetRef ref,
+    ExpenseModel expense,
+  ) async {
+    final client = ref.read(supabaseProvider);
+    final sup = await client
+        .from('supervisors')
+        .select('name, upi_id')
+        .eq('id', expense.supervisorId)
+        .maybeSingle();
+
+    final upiId = sup?['upi_id'] as String?;
+    final name = sup?['name'] as String? ?? expense.supervisorName ?? 'Supervisor';
+
+    if (upiId == null || upiId.trim().isEmpty) {
+      if (context.mounted) _showNoUpiDialog(context, name);
+      return;
+    }
+
+    await _launchAndConfirm(
+      context: context,
+      ref: ref,
+      payeeName: name,
+      upiId: upiId,
+      amount: expense.amount,
+      referenceNote: 'Expense ${expense.expenseName}',
+      onConfirmed: (utr) async {
+        await ref.read(paymentRepositoryProvider).confirmExpensePayment(
+              expense.id,
+              utrReference: utr,
+            );
+        await ref.read(paymentRepositoryProvider).logPayment(
+              referenceType: 'expense',
+              referenceId: expense.id,
+              supervisorId: expense.supervisorId,
+              amount: expense.amount,
+              upiId: upiId,
+              paymentStatus: 'paid',
+              utrReference: utr,
+            );
+      },
+    );
+  }
+
+  static Future<void> payPayroll(
+    BuildContext context,
+    WidgetRef ref,
+    PayrollModel payroll,
+  ) async {
+    final client = ref.read(supabaseProvider);
+    final emp = await client
+        .from('employees')
+        .select('name, upi_id')
+        .eq('id', payroll.employeeId)
+        .maybeSingle();
+
+    final upiId = emp?['upi_id'] as String?;
+    final name = emp?['name'] as String? ?? payroll.employeeName ?? 'Employee';
+
+    if (upiId == null || upiId.trim().isEmpty) {
+      if (context.mounted) _showNoUpiDialog(context, name);
+      return;
+    }
+
+    await _launchAndConfirm(
+      context: context,
+      ref: ref,
+      payeeName: name,
+      upiId: upiId,
+      amount: payroll.netWage,
+      referenceNote:
+          'Salary ${payroll.payrollMonth}-${payroll.payrollYear}',
+      onConfirmed: (utr) async {
+        await ref.read(payrollRepositoryProvider).confirmPayment(
+              payroll.id,
+              utrReference: utr,
+            );
+        await ref.read(paymentRepositoryProvider).logPayment(
+              referenceType: 'payroll',
+              referenceId: payroll.id,
+              employeeId: payroll.employeeId,
+              amount: payroll.netWage,
+              upiId: upiId,
+              paymentStatus: 'paid',
+              utrReference: utr,
+            );
+      },
+    );
+  }
+
+  static void _showNoUpiDialog(BuildContext context, String name) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('No UPI ID on file'),
+        content: Text(
+          '$name does not have a UPI ID saved. Add one in their profile before paying via UPI.',
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static Future<void> _launchAndConfirm({
+    required BuildContext context,
+    required WidgetRef ref,
+    required String payeeName,
+    required String upiId,
+    required double amount,
+    required String referenceNote,
+    required Future<void> Function(String? utr) onConfirmed,
+  }) async {
+    final uri = ref.read(paymentRepositoryProvider).buildUpiUri(
+          upiId: upiId,
+          payeeName: payeeName,
+          amount: amount,
+          referenceNote: referenceNote,
+        );
+
+    final launched = await launchUrl(
+      Uri.parse(uri),
+      mode: LaunchMode.externalApplication,
+    );
+
+    if (!launched) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not open a UPI app. Is one installed?'),
+            backgroundColor: AppColors.error500,
+          ),
+        );
+      }
+      return;
+    }
+
+    if (!context.mounted) return;
+
+    // Ask the admin to confirm the payment after returning from the UPI app.
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _PaymentConfirmDialog(payeeName: payeeName, amount: amount),
+    );
+
+    if (result == null || result['confirmed'] != true) return;
+
+    final utr = (result['utr'] as String?)?.trim();
+    try {
+      await onConfirmed(utr == null || utr.isEmpty ? null : utr);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Payment recorded'),
+            backgroundColor: AppColors.success500,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error recording payment: $e'), backgroundColor: AppColors.error500),
+        );
+      }
+    }
+  }
+}
+
+class _PaymentConfirmDialog extends StatefulWidget {
+  final String payeeName;
+  final double amount;
+  const _PaymentConfirmDialog({required this.payeeName, required this.amount});
+
+  @override
+  State<_PaymentConfirmDialog> createState() => _PaymentConfirmDialogState();
+}
+
+class _PaymentConfirmDialogState extends State<_PaymentConfirmDialog> {
+  final _utrController = TextEditingController();
+
+  @override
+  void dispose() {
+    _utrController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Confirm Payment'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Did the UPI payment of ₹${widget.amount.toStringAsFixed(2)} to ${widget.payeeName} go through?'),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _utrController,
+            decoration: const InputDecoration(
+              labelText: 'UTR / Reference (optional)',
+              hintText: 'e.g. 123456789012',
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, {'confirmed': false}),
+          child: const Text('Not Yet'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, {
+            'confirmed': true,
+            'utr': _utrController.text,
+          }),
+          style: FilledButton.styleFrom(backgroundColor: AppColors.success500),
+          child: const Text('Yes, Paid'),
         ),
       ],
     );
