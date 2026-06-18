@@ -3,6 +3,7 @@ import 'package:equatable/equatable.dart';
 class ProfileModel extends Equatable {
   final String id;
   final String role;
+  final String? companyId;
   final String? employeeCode;
   final String fullName;
   final String? mobile;
@@ -15,6 +16,7 @@ class ProfileModel extends Equatable {
   const ProfileModel({
     required this.id,
     required this.role,
+    this.companyId,
     this.employeeCode,
     required this.fullName,
     this.mobile,
@@ -28,6 +30,7 @@ class ProfileModel extends Equatable {
   factory ProfileModel.fromJson(Map<String, dynamic> json) => ProfileModel(
         id: json['id'] as String,
         role: json['role'] as String,
+        companyId: json['company_id'] as String?,
         employeeCode: json['employee_code'] as String?,
         fullName: json['full_name'] as String,
         mobile: json['mobile'] as String?,
@@ -42,6 +45,7 @@ class ProfileModel extends Equatable {
   Map<String, dynamic> toJson() => {
         'id': id,
         'role': role,
+        'company_id': companyId,
         'employee_code': employeeCode,
         'full_name': fullName,
         'mobile': mobile,
@@ -53,21 +57,80 @@ class ProfileModel extends Equatable {
       };
 
   bool get isAdmin => role == 'admin';
-
   bool get isSupervisor => role == 'supervisor';
+  bool get isEmployee => role == 'employee';
+  bool get isPlatformAdmin => role == 'platform_admin';
 
   @override
   List<Object?> get props => [
         id,
         role,
+        companyId,
         fullName,
         isActive,
         mustChangePassword,
       ];
 }
 
+class CompanyModel extends Equatable {
+  final String id;
+  final String companyName;
+  final String? ownerProfileId;
+  final String subscriptionPlan;
+  final String status;
+  final String? logoUrl;
+  final String? address;
+  final String? phone;
+  final String? email;
+  final String? gstin;
+  final String currencySymbol;
+  final String timezone;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  const CompanyModel({
+    required this.id,
+    required this.companyName,
+    this.ownerProfileId,
+    required this.subscriptionPlan,
+    required this.status,
+    this.logoUrl,
+    this.address,
+    this.phone,
+    this.email,
+    this.gstin,
+    required this.currencySymbol,
+    required this.timezone,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory CompanyModel.fromJson(Map<String, dynamic> json) => CompanyModel(
+        id: json['id'] as String,
+        companyName: json['company_name'] as String,
+        ownerProfileId: json['owner_profile_id'] as String?,
+        subscriptionPlan: json['subscription_plan'] as String? ?? 'free',
+        status: json['status'] as String? ?? 'active',
+        logoUrl: json['logo_url'] as String?,
+        address: json['address'] as String?,
+        phone: json['phone'] as String?,
+        email: json['email'] as String?,
+        gstin: json['gstin'] as String?,
+        currencySymbol: json['currency_symbol'] as String? ?? '₹',
+        timezone: json['timezone'] as String? ?? 'Asia/Kolkata',
+        createdAt: DateTime.parse(json['created_at'] as String),
+        updatedAt: DateTime.parse(json['updated_at'] as String),
+      );
+
+  bool get isActive => status == 'active';
+
+  @override
+  List<Object?> get props => [id, companyName, status];
+}
+
 class EmployeeModel extends Equatable {
   final String id;
+  final String? profileId;
   final String employeeCode;
   final String name;
   final String? mobile;
@@ -80,12 +143,17 @@ class EmployeeModel extends Equatable {
   final double dailyWageRate;
   final String? employeePhotoUrl;
   final String status;
+  final String? upiId;
+  final String? bankAccountNumber;
+  final String? bankIfsc;
+  final String? bankName;
   final String? createdBy;
   final DateTime createdAt;
   final DateTime updatedAt;
 
   const EmployeeModel({
     required this.id,
+    this.profileId,
     required this.employeeCode,
     required this.name,
     this.mobile,
@@ -98,6 +166,10 @@ class EmployeeModel extends Equatable {
     required this.dailyWageRate,
     this.employeePhotoUrl,
     required this.status,
+    this.upiId,
+    this.bankAccountNumber,
+    this.bankIfsc,
+    this.bankName,
     this.createdBy,
     required this.createdAt,
     required this.updatedAt,
@@ -105,6 +177,7 @@ class EmployeeModel extends Equatable {
 
   factory EmployeeModel.fromJson(Map<String, dynamic> json) => EmployeeModel(
     id: json['id'] as String,
+    profileId: json['profile_id'] as String?,
     employeeCode: json['employee_code'] as String,
     name: json['name'] as String,
     mobile: json['mobile'] as String?,
@@ -117,6 +190,10 @@ class EmployeeModel extends Equatable {
     dailyWageRate: (json['daily_wage_rate'] as num).toDouble(),
     employeePhotoUrl: json['employee_photo_url'] as String?,
     status: json['status'] as String,
+    upiId: json['upi_id'] as String?,
+    bankAccountNumber: json['bank_account_number'] as String?,
+    bankIfsc: json['bank_ifsc'] as String?,
+    bankName: json['bank_name'] as String?,
     createdBy: json['created_by'] as String?,
     createdAt: DateTime.parse(json['created_at'] as String),
     updatedAt: DateTime.parse(json['updated_at'] as String),
@@ -134,9 +211,14 @@ class EmployeeModel extends Equatable {
     'daily_wage_rate': dailyWageRate,
     'employee_photo_url': employeePhotoUrl,
     'status': status,
+    'upi_id': upiId,
+    'bank_account_number': bankAccountNumber,
+    'bank_ifsc': bankIfsc,
+    'bank_name': bankName,
   };
 
   bool get isActive => status == 'active';
+  bool get hasUpi => upiId != null && upiId!.trim().isNotEmpty;
 
   EmployeeModel copyWith({
     String? name,
@@ -149,8 +231,13 @@ class EmployeeModel extends Equatable {
     double? dailyWageRate,
     String? employeePhotoUrl,
     String? status,
+    String? upiId,
+    String? bankAccountNumber,
+    String? bankIfsc,
+    String? bankName,
   }) => EmployeeModel(
     id: id,
+    profileId: profileId,
     employeeCode: employeeCode,
     name: name ?? this.name,
     mobile: mobile ?? this.mobile,
@@ -162,6 +249,10 @@ class EmployeeModel extends Equatable {
     dailyWageRate: dailyWageRate ?? this.dailyWageRate,
     employeePhotoUrl: employeePhotoUrl ?? this.employeePhotoUrl,
     status: status ?? this.status,
+    upiId: upiId ?? this.upiId,
+    bankAccountNumber: bankAccountNumber ?? this.bankAccountNumber,
+    bankIfsc: bankIfsc ?? this.bankIfsc,
+    bankName: bankName ?? this.bankName,
     createdAt: createdAt,
     updatedAt: updatedAt,
   );
@@ -180,6 +271,10 @@ class SupervisorModel extends Equatable {
   final String? assignedArea;
   final String? profilePhotoUrl;
   final bool isActive;
+  final String? upiId;
+  final String? bankAccountNumber;
+  final String? bankIfsc;
+  final String? bankName;
   final String? createdBy;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -194,6 +289,10 @@ class SupervisorModel extends Equatable {
     this.assignedArea,
     this.profilePhotoUrl,
     required this.isActive,
+    this.upiId,
+    this.bankAccountNumber,
+    this.bankIfsc,
+    this.bankName,
     this.createdBy,
     required this.createdAt,
     required this.updatedAt,
@@ -209,6 +308,10 @@ class SupervisorModel extends Equatable {
     assignedArea: json['assigned_area'] as String?,
     profilePhotoUrl: json['profile_photo_url'] as String?,
     isActive: json['is_active'] as bool? ?? true,
+    upiId: json['upi_id'] as String?,
+    bankAccountNumber: json['bank_account_number'] as String?,
+    bankIfsc: json['bank_ifsc'] as String?,
+    bankName: json['bank_name'] as String?,
     createdBy: json['created_by'] as String?,
     createdAt: DateTime.parse(json['created_at'] as String),
     updatedAt: DateTime.parse(json['updated_at'] as String),
@@ -222,7 +325,13 @@ class SupervisorModel extends Equatable {
     'assigned_area': assignedArea,
     'profile_photo_url': profilePhotoUrl,
     'is_active': isActive,
+    'upi_id': upiId,
+    'bank_account_number': bankAccountNumber,
+    'bank_ifsc': bankIfsc,
+    'bank_name': bankName,
   };
+
+  bool get hasUpi => upiId != null && upiId!.trim().isNotEmpty;
 
   @override
   List<Object?> get props => [id, supervisorCode, email, isActive];
@@ -362,6 +471,11 @@ class ExpenseModel extends Equatable {
   final String? adminRemarks;
   final String? reviewedBy;
   final DateTime? reviewedAt;
+  final String paymentStatus;
+  final String? paymentMethod;
+  final String? utrReference;
+  final DateTime? paymentInitiatedAt;
+  final DateTime? paymentConfirmedAt;
   final List<ExpenseAttachmentModel>? attachments;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -379,6 +493,11 @@ class ExpenseModel extends Equatable {
     this.adminRemarks,
     this.reviewedBy,
     this.reviewedAt,
+    this.paymentStatus = 'unpaid',
+    this.paymentMethod,
+    this.utrReference,
+    this.paymentInitiatedAt,
+    this.paymentConfirmedAt,
     this.attachments,
     required this.createdAt,
     required this.updatedAt,
@@ -397,6 +516,11 @@ class ExpenseModel extends Equatable {
     adminRemarks: json['admin_remarks'] as String?,
     reviewedBy: json['reviewed_by'] as String?,
     reviewedAt: json['reviewed_at'] != null ? DateTime.parse(json['reviewed_at'] as String) : null,
+    paymentStatus: json['payment_status'] as String? ?? 'unpaid',
+    paymentMethod: json['payment_method'] as String?,
+    utrReference: json['utr_reference'] as String?,
+    paymentInitiatedAt: json['payment_initiated_at'] != null ? DateTime.parse(json['payment_initiated_at'] as String) : null,
+    paymentConfirmedAt: json['payment_confirmed_at'] != null ? DateTime.parse(json['payment_confirmed_at'] as String) : null,
     attachments: json['expense_attachments'] != null
         ? (json['expense_attachments'] as List).map((a) => ExpenseAttachmentModel.fromJson(a as Map<String, dynamic>)).toList()
         : null,
@@ -407,9 +531,11 @@ class ExpenseModel extends Equatable {
   bool get isPending => status == 'pending';
   bool get isApproved => status == 'approved';
   bool get isRejected => status == 'rejected';
+  bool get isPaid => paymentStatus == 'paid';
+  bool get canPay => isApproved && !isPaid;
 
   @override
-  List<Object?> get props => [id, supervisorId, expenseName, status, amount];
+  List<Object?> get props => [id, supervisorId, expenseName, status, amount, paymentStatus];
 }
 
 class ExpenseAttachmentModel extends Equatable {
@@ -475,6 +601,11 @@ class PayrollModel extends Equatable {
   final DateTime? processedAt;
   final DateTime? paidAt;
   final String? remarks;
+  final String paymentStatus;
+  final String? paymentMethod;
+  final String? utrReference;
+  final DateTime? paymentInitiatedAt;
+  final DateTime? paymentConfirmedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -502,6 +633,11 @@ class PayrollModel extends Equatable {
     this.processedAt,
     this.paidAt,
     this.remarks,
+    this.paymentStatus = 'unpaid',
+    this.paymentMethod,
+    this.utrReference,
+    this.paymentInitiatedAt,
+    this.paymentConfirmedAt,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -530,14 +666,75 @@ class PayrollModel extends Equatable {
     processedAt: json['processed_at'] != null ? DateTime.parse(json['processed_at'] as String) : null,
     paidAt: json['paid_at'] != null ? DateTime.parse(json['paid_at'] as String) : null,
     remarks: json['remarks'] as String?,
+    paymentStatus: json['payment_status'] as String? ?? 'unpaid',
+    paymentMethod: json['payment_method'] as String?,
+    utrReference: json['utr_reference'] as String?,
+    paymentInitiatedAt: json['payment_initiated_at'] != null ? DateTime.parse(json['payment_initiated_at'] as String) : null,
+    paymentConfirmedAt: json['payment_confirmed_at'] != null ? DateTime.parse(json['payment_confirmed_at'] as String) : null,
     createdAt: DateTime.parse(json['created_at'] as String),
     updatedAt: DateTime.parse(json['updated_at'] as String),
   );
 
   double get effectiveDays => presentDays + (halfDays * 0.5);
+  bool get isPaid => paymentStatus == 'paid' || status == 'paid';
+  bool get canPay => !isPaid;
 
   @override
-  List<Object?> get props => [id, employeeId, payrollMonth, payrollYear, status];
+  List<Object?> get props => [id, employeeId, payrollMonth, payrollYear, status, paymentStatus];
+}
+
+class PaymentLogModel extends Equatable {
+  final String id;
+  final String referenceType;
+  final String referenceId;
+  final String? employeeId;
+  final String? supervisorId;
+  final double amount;
+  final String? upiId;
+  final String paymentMethod;
+  final String paymentStatus;
+  final String? utrReference;
+  final String? initiatedBy;
+  final DateTime initiatedAt;
+  final DateTime? confirmedAt;
+  final String? remarks;
+
+  const PaymentLogModel({
+    required this.id,
+    required this.referenceType,
+    required this.referenceId,
+    this.employeeId,
+    this.supervisorId,
+    required this.amount,
+    this.upiId,
+    required this.paymentMethod,
+    required this.paymentStatus,
+    this.utrReference,
+    this.initiatedBy,
+    required this.initiatedAt,
+    this.confirmedAt,
+    this.remarks,
+  });
+
+  factory PaymentLogModel.fromJson(Map<String, dynamic> json) => PaymentLogModel(
+    id: json['id'] as String,
+    referenceType: json['reference_type'] as String,
+    referenceId: json['reference_id'] as String,
+    employeeId: json['employee_id'] as String?,
+    supervisorId: json['supervisor_id'] as String?,
+    amount: (json['amount'] as num).toDouble(),
+    upiId: json['upi_id'] as String?,
+    paymentMethod: json['payment_method'] as String? ?? 'upi',
+    paymentStatus: json['payment_status'] as String? ?? 'initiated',
+    utrReference: json['utr_reference'] as String?,
+    initiatedBy: json['initiated_by'] as String?,
+    initiatedAt: DateTime.parse(json['initiated_at'] as String),
+    confirmedAt: json['confirmed_at'] != null ? DateTime.parse(json['confirmed_at'] as String) : null,
+    remarks: json['remarks'] as String?,
+  );
+
+  @override
+  List<Object?> get props => [id, referenceType, referenceId, paymentStatus];
 }
 
 class DepartmentModel extends Equatable {
