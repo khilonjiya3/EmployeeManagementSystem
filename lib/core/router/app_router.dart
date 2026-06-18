@@ -12,6 +12,7 @@ import '../../presentation/auth/force_password_change_screen.dart';
 
 import '../../presentation/dashboard/admin_dashboard_screen.dart';
 import '../../presentation/dashboard/supervisor_dashboard_screen.dart';
+import '../../presentation/dashboard/employee_dashboard_screen.dart';
 
 import '../../presentation/employees/employees_list_screen.dart';
 import '../../presentation/employees/employee_form_screen.dart';
@@ -56,16 +57,30 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ].contains(state.matchedLocation);
 
       if (!isLoggedIn && !isPublicRoute) return '/login';
-      if (isLoggedIn && (state.matchedLocation == '/login' ||
-          state.matchedLocation == '/forgot-password')) {
+      if (isLoggedIn &&
+          (state.matchedLocation == '/login' ||
+              state.matchedLocation == '/forgot-password')) {
         return '/dashboard';
       }
 
-      // Force password change check
+      // Force password change check.
+      // IMPORTANT: only redirect TO /change-password using the cached profile
+      // value (AsyncValue.valueOrNull). We deliberately do NOT redirect AWAY
+      // from /change-password here — that responsibility belongs solely to
+      // ForcePasswordChangeScreen itself after it confirms the profile was
+      // actually updated (see force_password_change_screen.dart _save()).
+      // This avoids the double-prompt bug where a stale cached profile
+      // (still showing mustChangePassword: true during the brief
+      // invalidate/refetch window) would bounce the user back here right
+      // after they just changed their password.
       if (isLoggedIn && state.matchedLocation != '/change-password') {
-        final profile = ref.read(currentProfileProvider).valueOrNull;
-        if (profile?.mustChangePassword == true) {
-          return '/change-password';
+        final profileAsync = ref.read(currentProfileProvider);
+        // Only act on a profile we're CONFIDENT about (has data, not loading/stale).
+        if (profileAsync.hasValue) {
+          final profile = profileAsync.value;
+          if (profile?.mustChangePassword == true) {
+            return '/change-password';
+          }
         }
       }
 
@@ -263,6 +278,7 @@ class DashboardRouterWidget extends ConsumerWidget {
           Scaffold(body: Center(child: Text('Failed to load profile: $e'))),
       data: (profile) {
         if (profile?.role == 'admin') return const AdminDashboardScreen();
+        if (profile?.role == 'employee') return const EmployeeDashboardScreen();
         return const SupervisorDashboardScreen();
       },
     );
