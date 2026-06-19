@@ -72,61 +72,6 @@ class ProfileModel extends Equatable {
       ];
 }
 
-class CompanyModel extends Equatable {
-  final String id;
-  final String companyName;
-  final String? ownerProfileId;
-  final String subscriptionPlan;
-  final String status;
-  final String? logoUrl;
-  final String? address;
-  final String? phone;
-  final String? email;
-  final String? gstin;
-  final String currencySymbol;
-  final String timezone;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-
-  const CompanyModel({
-    required this.id,
-    required this.companyName,
-    this.ownerProfileId,
-    required this.subscriptionPlan,
-    required this.status,
-    this.logoUrl,
-    this.address,
-    this.phone,
-    this.email,
-    this.gstin,
-    required this.currencySymbol,
-    required this.timezone,
-    required this.createdAt,
-    required this.updatedAt,
-  });
-
-  factory CompanyModel.fromJson(Map<String, dynamic> json) => CompanyModel(
-        id: json['id'] as String,
-        companyName: json['company_name'] as String,
-        ownerProfileId: json['owner_profile_id'] as String?,
-        subscriptionPlan: json['subscription_plan'] as String? ?? 'free',
-        status: json['status'] as String? ?? 'active',
-        logoUrl: json['logo_url'] as String?,
-        address: json['address'] as String?,
-        phone: json['phone'] as String?,
-        email: json['email'] as String?,
-        gstin: json['gstin'] as String?,
-        currencySymbol: json['currency_symbol'] as String? ?? '₹',
-        timezone: json['timezone'] as String? ?? 'Asia/Kolkata',
-        createdAt: DateTime.parse(json['created_at'] as String),
-        updatedAt: DateTime.parse(json['updated_at'] as String),
-      );
-
-  bool get isActive => status == 'active';
-
-  @override
-  List<Object?> get props => [id, companyName, status];
-}
 
 class EmployeeModel extends Equatable {
   final String id;
