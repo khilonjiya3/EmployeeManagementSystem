@@ -181,84 +181,132 @@ class _PayrollCardWithPay extends ConsumerWidget {
 
   const _PayrollCardWithPay({required this.payroll, required this.onTap});
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.secondary200),
-      ),
-      child: Column(
-        children: [
-          InkWell(
-            onTap: onTap,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 22,
-                    backgroundColor: AppColors.primary100,
-                    child: Text(
-                      (payroll.employeeName ?? 'E')[0].toUpperCase(),
-                      style: const TextStyle(color: AppColors.primary600, fontWeight: FontWeight.w700, fontFamily: 'Inter'),
-                    ),
+  // In _PayrollCardWithPay — replace the entire build method:
+@override
+Widget build(BuildContext context, WidgetRef ref) {
+  final theme = Theme.of(context);
+  final paymentEnabled = ref.watch(paymentModuleEnabledProvider);
+
+  return Container(
+    decoration: BoxDecoration(
+      color: theme.colorScheme.surface,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: AppColors.secondary200),
+    ),
+    child: Column(
+      children: [
+        InkWell(
+          onTap: onTap,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor: AppColors.primary100,
+                  child: Text(
+                    (payroll.employeeName ?? 'E')[0].toUpperCase(),
+                    style: const TextStyle(
+                        color: AppColors.primary600,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: 'Inter'),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(payroll.employeeName ?? 'Employee', style: theme.textTheme.titleMedium),
-                        Text(payroll.employeeCode ?? '', style: theme.textTheme.bodySmall?.copyWith(color: AppColors.primary500)),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            _DayBadge(label: 'P', days: payroll.presentDays, color: AppColors.success500),
-                            const SizedBox(width: 4),
-                            _DayBadge(label: 'H', days: payroll.halfDays, color: AppColors.accent500),
-                            const SizedBox(width: 4),
-                            _DayBadge(label: 'A', days: payroll.absentDays, color: AppColors.error500),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(CurrencyUtils.format(payroll.netWage), style: theme.textTheme.titleMedium?.copyWith(color: AppColors.primary600)),
+                      Text(payroll.employeeName ?? 'Employee',
+                          style: theme.textTheme.titleMedium),
+                      Text(payroll.employeeCode ?? '',
+                          style: theme.textTheme.bodySmall
+                              ?.copyWith(color: AppColors.primary500)),
                       const SizedBox(height: 4),
-                      w.StatusBadge(status: payroll.isPaid ? 'paid' : payroll.status),
+                      Row(
+                        children: [
+                          _DayBadge(
+                              label: 'P',
+                              days: payroll.presentDays,
+                              color: AppColors.success500),
+                          const SizedBox(width: 4),
+                          _DayBadge(
+                              label: 'H',
+                              days: payroll.halfDays,
+                              color: AppColors.accent500),
+                          const SizedBox(width: 4),
+                          _DayBadge(
+                              label: 'A',
+                              days: payroll.absentDays,
+                              color: AppColors.error500),
+                        ],
+                      ),
                     ],
                   ),
-                ],
-              ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(CurrencyUtils.format(payroll.netWage),
+                        style: theme.textTheme.titleMedium
+                            ?.copyWith(color: AppColors.primary600)),
+                    const SizedBox(height: 4),
+                    w.StatusBadge(
+                        status: payroll.isPaid ? 'paid' : payroll.status),
+                  ],
+                ),
+              ],
             ),
           ),
-          if (!payroll.isPaid)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  icon: const Icon(Icons.account_balance_wallet_rounded, size: 16),
-                  label: const Text('Pay via UPI'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.success600,
-                    side: const BorderSide(color: AppColors.success500),
+        ),
+        if (!payroll.isPaid)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Row(
+              children: [
+                if (paymentEnabled)
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(
+                          Icons.account_balance_wallet_rounded,
+                          size: 16),
+                      label: const Text('Pay via UPI'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.success600,
+                        side:
+                            const BorderSide(color: AppColors.success500),
+                      ),
+                      onPressed: () =>
+                          w.UpiPaymentHelper.payPayroll(context, ref, payroll),
+                    ),
                   ),
-                  onPressed: () => w.UpiPaymentHelper.payPayroll(context, ref, payroll),
+                if (paymentEnabled) const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.check_rounded, size: 16),
+                    label: const Text('Mark Paid'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primary600,
+                      side:
+                          const BorderSide(color: AppColors.primary500),
+                    ),
+                    onPressed: () async {
+                      await ref
+                          .read(payrollRepositoryProvider)
+                          .markAsPaid(payroll.id);
+                      ref.invalidate(
+                          payrollListProvider(ref.read(selectedPayrollMonthProvider)));
+                    },
+                  ),
                 ),
-              ),
+              ],
             ),
-        ],
-      ),
-    );
-  }
+          ),
+      ],
+    ),
+  );
+}
 }
 
 class _DayBadge extends StatelessWidget {
