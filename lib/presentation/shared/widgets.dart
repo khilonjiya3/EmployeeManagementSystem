@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../data/models/app_models.dart';
 import '../../data/repositories/auth_repository.dart';
-import '../../data/models/app_models.dart'; // already there, just ensure SupervisorPayrollModel is imported
 
 import '../../core/theme/app_theme.dart';
 
