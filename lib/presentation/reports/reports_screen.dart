@@ -633,9 +633,9 @@ class _ExpenseReportState extends ConsumerState<_ExpenseReport> {
             data: supervisorSummary.values.map((s) => [
                   s['name'],
                   '${s['count']}',
-                  '₹${(s['total'] as double).toStringAsFixed(2)}',
-                  '₹${(s['approved'] as double? ?? 0).toStringAsFixed(2)}',
-                  '₹${(s['pending'] as double? ?? 0).toStringAsFixed(2)}',
+                  'Rs.${(s['total'] as double).toStringAsFixed(2)}',
+                  'Rs.${(s['approved'] as double? ?? 0).toStringAsFixed(2)}',
+                  'Rs.${(s['pending'] as double? ?? 0).toStringAsFixed(2)}',
                 ]).toList(),
             headerStyle: pw.TextStyle(
                 fontWeight: pw.FontWeight.bold, fontSize: 10),
@@ -663,7 +663,7 @@ class _ExpenseReportState extends ConsumerState<_ExpenseReport> {
                       e.expenseName,
                       StringUtils.capitalize(e.category),
                       e.supervisorName ?? '',
-                      '₹${e.amount.toStringAsFixed(2)}',
+                      'Rs.${e.amount.toStringAsFixed(2)}',
                       e.status.toUpperCase(),
                     ])
                 .toList(),
@@ -974,12 +974,12 @@ class _PayrollReportState extends ConsumerState<_PayrollReport> {
           ),
           pw.SizedBox(height: 8),
           pw.Row(children: [
-            pw.Text('Total Gross: ₹${totalGross.toStringAsFixed(2)}  ',
+            pw.Text('Total Gross: Rs.${totalGross.toStringAsFixed(2)}  ',
                 style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
             pw.Text(
-                'Total Deductions: ₹${totalDeductions.toStringAsFixed(2)}  ',
+                'Total Deductions: Rs.${totalDeductions.toStringAsFixed(2)}  ',
                 style: pw.TextStyle(color: PdfColors.red700)),
-            pw.Text('Total Net: ₹${totalNet.toStringAsFixed(2)}',
+            pw.Text('Total Net: Rs.${totalNet.toStringAsFixed(2)}',
                 style: pw.TextStyle(
                     color: PdfColors.green700,
                     fontWeight: pw.FontWeight.bold)),
@@ -1008,12 +1008,12 @@ class _PayrollReportState extends ConsumerState<_PayrollReport> {
                       '${p.presentDays.toStringAsFixed(1)}',
                       '${p.halfDays.toStringAsFixed(1)}',
                       '${p.absentDays.toStringAsFixed(1)}',
-                      '₹${p.dailyWageRate.toStringAsFixed(0)}',
-                      '₹${p.grossWage.toStringAsFixed(2)}',
-                      '₹${p.advanceDeduction.toStringAsFixed(2)}',
-                      '₹${p.penaltyDeduction.toStringAsFixed(2)}',
-                      '₹${p.bonus.toStringAsFixed(2)}',
-                      '₹${p.netWage.toStringAsFixed(2)}',
+                      'Rs.${p.dailyWageRate.toStringAsFixed(0)}',
+                      'Rs.${p.grossWage.toStringAsFixed(2)}',
+                      'Rs.${p.advanceDeduction.toStringAsFixed(2)}',
+                      'Rs.${p.penaltyDeduction.toStringAsFixed(2)}',
+                      'Rs.${p.bonus.toStringAsFixed(2)}',
+                      'Rs.${p.netWage.toStringAsFixed(2)}',
                       p.status.toUpperCase(),
                     ])
                 .toList(),
