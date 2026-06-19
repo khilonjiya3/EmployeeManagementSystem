@@ -464,13 +464,171 @@ class EmployeeDetailScreen extends ConsumerWidget {
   }
 }
 
-class _EmployeeDetailBody extends ConsumerWidget {
+class _EmployeeDetailBody extends ConsumerStatefulWidget {
   final EmployeeModel employee;
   const _EmployeeDetailBody({required this.employee});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_EmployeeDetailBody> createState() => _EmployeeDetailBodyState();
+}
+
+class _EmployeeDetailBodyState extends ConsumerState<_EmployeeDetailBody> {
+  bool _isCreatingLogin = false;
+
+  Future<void> _createLogin() async {
+    final confirm = await w.ConfirmDialog.show(
+      context,
+      title: 'Create Employee Login?',
+      message:
+          'This will create login credentials for ${widget.employee.name}.\n\n'
+          'Username: ${widget.employee.employeeCode}\n'
+          'Password: Abcd@123 (must change on first login)',
+      confirmLabel: 'Create Login',
+      confirmColor: AppColors.primary500,
+    );
+    if (confirm != true || !mounted) return;
+
+    setState(() => _isCreatingLogin = true);
+    try {
+      await ref
+          .read(employeeRepositoryProvider)
+          .createLogin(widget.employee.id, widget.employee.employeeCode);
+
+      if (mounted) {
+        // Refresh the detail provider so the button disappears
+        ref.invalidate(_employeeDetailProvider(widget.employee.id));
+
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Login Created Successfully'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Share these credentials with the employee:'),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.primary200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.person_outline,
+                              size: 16, color: AppColors.primary600),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Username: ${widget.employee.employeeCode}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontFamily: 'Inter',
+                              color: AppColors.primary700,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      const Row(
+                        children: [
+                          Icon(Icons.lock_outline,
+                              size: 16, color: AppColors.primary600),
+                          SizedBox(width: 8),
+                          Text(
+                            'Password: Abcd@123',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontFamily: 'Inter',
+                              color: AppColors.primary700,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        '* Employee must change password on first login',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.secondary500,
+                          fontFamily: 'Inter',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Done'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Error: $e'),
+              backgroundColor: AppColors.error500),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isCreatingLogin = false);
+    }
+  }
+
+  Future<void> _toggleStatus() async {
+    final confirm = await w.ConfirmDialog.show(
+      context,
+      title: widget.employee.isActive
+          ? 'Deactivate Employee?'
+          : 'Activate Employee?',
+      message:
+          'Are you sure you want to ${widget.employee.isActive ? 'deactivate' : 'activate'} ${widget.employee.name}?',
+      confirmLabel: widget.employee.isActive ? 'Deactivate' : 'Activate',
+      confirmColor: widget.employee.isActive
+          ? AppColors.error500
+          : AppColors.success500,
+    );
+    if (confirm != true || !context.mounted) return;
+
+    try {
+      await ref.read(employeeRepositoryProvider).update(widget.employee.id, {
+        'status': widget.employee.isActive ? 'inactive' : 'active',
+      });
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Status updated'),
+              backgroundColor: AppColors.success500),
+        );
+        context.pop();
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Error: $e'),
+              backgroundColor: AppColors.error500),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final employee = widget.employee;
+    final hasLogin = employee.profileId != null;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -481,15 +639,24 @@ class _EmployeeDetailBody extends ConsumerWidget {
                 CircleAvatar(
                   radius: 48,
                   backgroundColor: AppColors.primary100,
-                  backgroundImage: employee.employeePhotoUrl != null ? NetworkImage(employee.employeePhotoUrl!) : null,
+                  backgroundImage: employee.employeePhotoUrl != null
+                      ? NetworkImage(employee.employeePhotoUrl!)
+                      : null,
                   child: employee.employeePhotoUrl == null
-                      ? Text(employee.name[0].toUpperCase(), style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w700, color: AppColors.primary500, fontFamily: 'Inter'))
+                      ? Text(employee.name[0].toUpperCase(),
+                          style: const TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary500,
+                              fontFamily: 'Inter'))
                       : null,
                 ),
                 const SizedBox(height: 12),
                 Text(employee.name, style: theme.textTheme.headlineMedium),
                 const SizedBox(height: 4),
-                Text(employee.employeeCode, style: theme.textTheme.bodyMedium?.copyWith(color: AppColors.primary500)),
+                Text(employee.employeeCode,
+                    style: theme.textTheme.bodyMedium
+                        ?.copyWith(color: AppColors.primary500)),
                 const SizedBox(height: 8),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -498,31 +665,155 @@ class _EmployeeDetailBody extends ConsumerWidget {
                     if (employee.designation != null) ...[
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(color: AppColors.secondary100, borderRadius: BorderRadius.circular(6)),
-                        child: Text(employee.designation!, style: theme.textTheme.labelSmall),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                            color: AppColors.secondary100,
+                            borderRadius: BorderRadius.circular(6)),
+                        child: Text(employee.designation!,
+                            style: theme.textTheme.labelSmall),
                       ),
                     ],
+                    const SizedBox(width: 8),
+                    // Login status badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: hasLogin
+                            ? AppColors.success50
+                            : AppColors.accent50,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            hasLogin
+                                ? Icons.lock_open_rounded
+                                : Icons.lock_outline_rounded,
+                            size: 10,
+                            color: hasLogin
+                                ? AppColors.success700
+                                : AppColors.accent700,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            hasLogin ? 'LOGIN ACTIVE' : 'NO LOGIN',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              fontFamily: 'Inter',
+                              color: hasLogin
+                                  ? AppColors.success700
+                                  : AppColors.accent700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ],
             ),
           ),
           const SizedBox(height: 24),
+
+          // Create Login banner — only shown when no login exists
+          if (!hasLogin) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.accent50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.accent200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.info_outline_rounded,
+                          color: AppColors.accent600, size: 18),
+                      SizedBox(width: 8),
+                      Text(
+                        'No app login created yet',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.accent700,
+                          fontFamily: 'Inter',
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Create a login so this employee can access the app to view their attendance and payslips.',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.accent600,
+                        fontFamily: 'Inter'),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      icon: _isCreatingLogin
+                          ? const SizedBox(
+                              height: 16,
+                              width: 16,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.person_add_rounded, size: 18),
+                      label: Text(_isCreatingLogin
+                          ? 'Creating...'
+                          : 'Create Employee Login'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.accent600,
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: _isCreatingLogin ? null : _createLogin,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
           _DetailCard(
             title: 'Contact Information',
             rows: [
-              if (employee.mobile != null) _DetailRow(icon: Icons.phone_outlined, label: 'Mobile', value: employee.mobile!),
-              if (employee.address != null) _DetailRow(icon: Icons.location_on_outlined, label: 'Address', value: employee.address!),
+              if (employee.mobile != null)
+                _DetailRow(
+                    icon: Icons.phone_outlined,
+                    label: 'Mobile',
+                    value: employee.mobile!),
+              if (employee.address != null)
+                _DetailRow(
+                    icon: Icons.location_on_outlined,
+                    label: 'Address',
+                    value: employee.address!),
             ],
           ),
           const SizedBox(height: 12),
           _DetailCard(
             title: 'Employment Information',
             rows: [
-              _DetailRow(icon: Icons.calendar_today_outlined, label: 'Joining Date', value: DateFormat('dd/MM/yyyy').format(employee.joiningDate)),
-              if (employee.departmentName != null) _DetailRow(icon: Icons.business_outlined, label: 'Department', value: employee.departmentName!),
-              _DetailRow(icon: Icons.currency_rupee_rounded, label: 'Daily Wage', value: '₹${employee.dailyWageRate.toStringAsFixed(2)}'),
+              _DetailRow(
+                  icon: Icons.calendar_today_outlined,
+                  label: 'Joining Date',
+                  value: DateFormat('dd/MM/yyyy').format(employee.joiningDate)),
+              if (employee.departmentName != null)
+                _DetailRow(
+                    icon: Icons.business_outlined,
+                    label: 'Department',
+                    value: employee.departmentName!),
+              _DetailRow(
+                  icon: Icons.currency_rupee_rounded,
+                  label: 'Daily Wage',
+                  value: '₹${employee.dailyWageRate.toStringAsFixed(2)}'),
             ],
           ),
           if (employee.hasUpi || employee.bankAccountNumber != null) ...[
@@ -530,10 +821,26 @@ class _EmployeeDetailBody extends ConsumerWidget {
             _DetailCard(
               title: 'Payment Details',
               rows: [
-                if (employee.hasUpi) _DetailRow(icon: Icons.account_balance_wallet_outlined, label: 'UPI ID', value: employee.upiId!),
-                if (employee.bankAccountNumber != null) _DetailRow(icon: Icons.account_balance_outlined, label: 'Account No.', value: employee.bankAccountNumber!),
-                if (employee.bankIfsc != null) _DetailRow(icon: Icons.pin_outlined, label: 'IFSC', value: employee.bankIfsc!),
-                if (employee.bankName != null) _DetailRow(icon: Icons.business_outlined, label: 'Bank', value: employee.bankName!),
+                if (employee.hasUpi)
+                  _DetailRow(
+                      icon: Icons.account_balance_wallet_outlined,
+                      label: 'UPI ID',
+                      value: employee.upiId!),
+                if (employee.bankAccountNumber != null)
+                  _DetailRow(
+                      icon: Icons.account_balance_outlined,
+                      label: 'Account No.',
+                      value: employee.bankAccountNumber!),
+                if (employee.bankIfsc != null)
+                  _DetailRow(
+                      icon: Icons.pin_outlined,
+                      label: 'IFSC',
+                      value: employee.bankIfsc!),
+                if (employee.bankName != null)
+                  _DetailRow(
+                      icon: Icons.business_outlined,
+                      label: 'Bank',
+                      value: employee.bankName!),
               ],
             ),
           ],
@@ -542,7 +849,10 @@ class _EmployeeDetailBody extends ConsumerWidget {
             _DetailCard(
               title: 'Documents',
               rows: [
-                _DetailRow(icon: Icons.credit_card_outlined, label: 'Aadhaar', value: StringUtils.maskAadhaar(employee.aadhaarNumber!)),
+                _DetailRow(
+                    icon: Icons.credit_card_outlined,
+                    label: 'Aadhaar',
+                    value: StringUtils.maskAadhaar(employee.aadhaarNumber!)),
               ],
             ),
           ],
@@ -553,57 +863,32 @@ class _EmployeeDetailBody extends ConsumerWidget {
                 child: OutlinedButton.icon(
                   icon: const Icon(Icons.edit_outlined, size: 18),
                   label: const Text('Edit'),
-                  onPressed: () => context.push('/employees/${employee.id}/edit'),
+                  onPressed: () =>
+                      context.push('/employees/${employee.id}/edit'),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton.icon(
                   icon: const Icon(Icons.toggle_on_outlined, size: 18),
-                  label: Text(employee.isActive ? 'Deactivate' : 'Activate'),
+                  label:
+                      Text(employee.isActive ? 'Deactivate' : 'Activate'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: employee.isActive ? AppColors.error500 : AppColors.success500,
+                    backgroundColor: employee.isActive
+                        ? AppColors.error500
+                        : AppColors.success500,
                   ),
-                  onPressed: () => _toggleStatus(context, ref),
+                  onPressed: _toggleStatus,
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 32),
         ],
       ),
     );
   }
-
-  Future<void> _toggleStatus(BuildContext context, WidgetRef ref) async {
-    final confirm = await w.ConfirmDialog.show(
-      context,
-      title: employee.isActive ? 'Deactivate Employee?' : 'Activate Employee?',
-      message: 'Are you sure you want to ${employee.isActive ? 'deactivate' : 'activate'} ${employee.name}?',
-      confirmLabel: employee.isActive ? 'Deactivate' : 'Activate',
-      confirmColor: employee.isActive ? AppColors.error500 : AppColors.success500,
-    );
-    if (confirm != true || !context.mounted) return;
-
-    try {
-      await ref.read(employeeRepositoryProvider).update(employee.id, {
-        'status': employee.isActive ? 'inactive' : 'active',
-      });
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Status updated'), backgroundColor: AppColors.success500),
-        );
-        context.pop();
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error500),
-        );
-      }
-    }
-  }
 }
-
 class _DetailCard extends StatelessWidget {
   final String title;
   final List<_DetailRow> rows;
