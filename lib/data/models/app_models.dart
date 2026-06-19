@@ -261,6 +261,8 @@ class EmployeeModel extends Equatable {
   List<Object?> get props => [id, employeeCode, name, status];
 }
 
+// REPLACE the entire SupervisorModel class in app_models.dart with this:
+
 class SupervisorModel extends Equatable {
   final String id;
   final String? profileId;
@@ -275,6 +277,7 @@ class SupervisorModel extends Equatable {
   final String? bankAccountNumber;
   final String? bankIfsc;
   final String? bankName;
+  final double monthlySalary;
   final String? createdBy;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -293,6 +296,7 @@ class SupervisorModel extends Equatable {
     this.bankAccountNumber,
     this.bankIfsc,
     this.bankName,
+    this.monthlySalary = 0,
     this.createdBy,
     required this.createdAt,
     required this.updatedAt,
@@ -312,6 +316,7 @@ class SupervisorModel extends Equatable {
     bankAccountNumber: json['bank_account_number'] as String?,
     bankIfsc: json['bank_ifsc'] as String?,
     bankName: json['bank_name'] as String?,
+    monthlySalary: (json['monthly_salary'] as num?)?.toDouble() ?? 0,
     createdBy: json['created_by'] as String?,
     createdAt: DateTime.parse(json['created_at'] as String),
     updatedAt: DateTime.parse(json['updated_at'] as String),
@@ -329,6 +334,7 @@ class SupervisorModel extends Equatable {
     'bank_account_number': bankAccountNumber,
     'bank_ifsc': bankIfsc,
     'bank_name': bankName,
+    'monthly_salary': monthlySalary,
   };
 
   bool get hasUpi => upiId != null && upiId!.trim().isNotEmpty;
@@ -336,7 +342,6 @@ class SupervisorModel extends Equatable {
   @override
   List<Object?> get props => [id, supervisorCode, email, isActive];
 }
-
 class AttendanceModel extends Equatable {
   final String id;
   final String supervisorId;
