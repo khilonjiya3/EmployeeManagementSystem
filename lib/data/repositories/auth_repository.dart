@@ -341,16 +341,16 @@ class SupervisorRepository {
   Future<SupervisorModel> create(
       Map<String, dynamic> supervisorData, String password) async {
     final response = await _client.functions.invoke(
-      'create-supervisor',
-      body: {
-        'email': supervisorData['email'],
-        'password': password,
-        'full_name': supervisorData['name'],
-        'mobile': supervisorData['mobile'],
-        'assigned_area': supervisorData['assigned_area'],
-        'must_change_password': true,
-      },
-    );
+  'create-supervisor',
+  body: {
+    'email': supervisorData['email'],
+    'password': password,
+    'full_name': supervisorData['name'],
+    'mobile': supervisorData['mobile'],
+    'assigned_area': supervisorData['assigned_area'],
+    'created_by': _client.auth.currentUser!.id,
+  },
+);
 
     final responseData = response.data as Map<String, dynamic>?;
     if (response.status != 200) {
