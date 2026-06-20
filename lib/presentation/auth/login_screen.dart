@@ -62,10 +62,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         return;
       }
 
-      if (profile.mustChangePassword) {
-        context.go('/change-password');
-        return;
-      }
+      // NOTE: We deliberately do NOT navigate to '/change-password' here.
+      // The router's redirect() is the single source of truth for this
+      // decision (see app_router.dart). Having two places independently
+      // check `mustChangePassword` against a Riverpod FutureProvider that
+      // can briefly serve stale/previous data during a refetch was the
+      // root cause of the "force password change shown twice" bug.
+      // We've already awaited the FRESH profile above, so router redirect
+      // will correctly catch mustChangePassword == true on the very next
+      // navigation (to '/dashboard' below) using the same fresh data.
 
       context.go('/dashboard');
     } catch (e) {
@@ -154,7 +159,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           children: [
             TextFormField(
               controller: _emailController,
-              textCapitalization: TextCapitalization.characters,
+              // NOTE: intentionally no `textCapitalization` here. We used to
+              // set TextCapitalization.characters, but that's a keyboard
+              // HINT only — behavior is inconsistent across Android
+              // versions/keyboard apps (some force real uppercase chars,
+              // some don't, some fight with autocorrect). The username is
+              // already normalized with .toUpperCase() before use, so we
+              // don't need the keyboard to do it, and leaving it off lets
+              // people type naturally.
               textInputAction: TextInputAction.next,
               enabled: !_isLoading,
               decoration: const InputDecoration(
