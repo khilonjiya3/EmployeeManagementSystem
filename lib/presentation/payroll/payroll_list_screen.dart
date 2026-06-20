@@ -123,7 +123,7 @@ class _PayrollListScreenState extends ConsumerState<PayrollListScreen>
                     );
                   },
                 ),
-                // ---- Supervisors tab (new — item 6) ----
+                // ---- Supervisors tab (new â€” item 6) ----
                 supervisorPayrollList.when(
                   loading: () => const Center(child: CircularProgressIndicator()),
                   error: (e, _) => Center(child: Text('Error: $e')),
@@ -314,7 +314,7 @@ class _PayrollCardWithPay extends ConsumerWidget {
 
   const _PayrollCardWithPay({required this.payroll, required this.onTap});
 
-  // In _PayrollCardWithPay — replace the entire build method:
+  // In _PayrollCardWithPay â€” replace the entire build method:
 @override
 Widget build(BuildContext context, WidgetRef ref) {
   final theme = Theme.of(context);
@@ -629,7 +629,7 @@ class _ProcessSupervisorPayrollSheetState
             items: widget.supervisors
                 .map((s) => DropdownMenuItem(
                     value: s.id,
-                    child: Text('${s.name} (₹${s.monthlySalary.toStringAsFixed(0)}/mo)')))
+                    child: Text('${s.name} (â‚¹${s.monthlySalary.toStringAsFixed(0)}/mo)')))
                 .toList(),
             onChanged: (v) => setState(() => _selectedSupervisorId = v),
           ),
@@ -817,7 +817,7 @@ class _PayrollProcessScreenState extends ConsumerState<PayrollProcessScreen> {
                             });
                           },
                           title: Text(emp.name, style: Theme.of(context).textTheme.titleMedium),
-                          subtitle: Text('${emp.employeeCode} • ₹${emp.dailyWageRate}/day', style: Theme.of(context).textTheme.bodySmall),
+                          subtitle: Text('${emp.employeeCode} â€¢ â‚¹${emp.dailyWageRate}/day', style: Theme.of(context).textTheme.bodySmall),
                           secondary: CircleAvatar(
                             radius: 18,
                             backgroundColor: AppColors.primary100,
