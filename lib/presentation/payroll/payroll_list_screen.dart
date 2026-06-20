@@ -15,13 +15,44 @@ final payrollListProvider = FutureProvider.autoDispose.family<List<PayrollModel>
   return ref.watch(payrollRepositoryProvider).getByMonthYear(date.month, date.year);
 });
 
-class PayrollListScreen extends ConsumerWidget {
+final supervisorPayrollListProvider = FutureProvider.autoDispose.family<List<SupervisorPayrollModel>, DateTime>((ref, date) {
+  return ref.watch(supervisorPayrollRepositoryProvider).getByMonthYear(date.month, date.year);
+});
+
+final allSupervisorsForPayrollProvider = FutureProvider.autoDispose<List<SupervisorModel>>((ref) {
+  return ref.watch(supervisorRepositoryProvider).getAll(isActive: true);
+});
+
+class PayrollListScreen extends ConsumerStatefulWidget {
   const PayrollListScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PayrollListScreen> createState() => _PayrollListScreenState();
+}
+
+class _PayrollListScreenState extends ConsumerState<PayrollListScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final selectedMonth = ref.watch(selectedPayrollMonthProvider);
     final payrollList = ref.watch(payrollListProvider(selectedMonth));
+    final supervisorPayrollList =
+        ref.watch(supervisorPayrollListProvider(selectedMonth));
+    final allSupervisors = ref.watch(allSupervisorsForPayrollProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -32,6 +63,13 @@ class PayrollListScreen extends ConsumerWidget {
             onPressed: () => context.push('/payroll/process'),
           ),
         ],
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: 'Employees'),
+            Tab(text: 'Supervisors'),
+          ],
+        ),
       ),
       body: Column(
         children: [
@@ -40,54 +78,149 @@ class PayrollListScreen extends ConsumerWidget {
             onChanged: (m) => ref.read(selectedPayrollMonthProvider.notifier).state = m,
           ),
           Expanded(
-            child: payrollList.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Error: $e')),
-              data: (list) {
-                if (list.isEmpty) {
-                  return w.EmptyState(
-                    title: 'No payroll processed',
-                    subtitle: 'Process payroll for ${DateFormat('MMMM yyyy').format(selectedMonth)}',
-                    icon: Icons.payments_outlined,
-                    actionLabel: 'Process Payroll',
-                    onAction: () => context.push('/payroll/process'),
-                  );
-                }
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                // ---- Employees tab (existing behavior, unchanged) ----
+                payrollList.when(
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Center(child: Text('Error: $e')),
+                  data: (list) {
+                    if (list.isEmpty) {
+                      return w.EmptyState(
+                        title: 'No payroll processed',
+                        subtitle: 'Process payroll for ${DateFormat('MMMM yyyy').format(selectedMonth)}',
+                        icon: Icons.payments_outlined,
+                        actionLabel: 'Process Payroll',
+                        onAction: () => context.push('/payroll/process'),
+                      );
+                    }
 
-                final totalNet = list.fold<double>(0, (sum, p) => sum + p.netWage);
-                final paidCount = list.where((p) => p.isPaid).length;
+                    final totalNet = list.fold<double>(0, (sum, p) => sum + p.netWage);
+                    final paidCount = list.where((p) => p.isPaid).length;
 
-                return Column(
-                  children: [
-                    _PayrollSummaryBar(totalNet: totalNet, paidCount: paidCount, total: list.length),
-                    Expanded(
-                      child: RefreshIndicator(
-                        onRefresh: () async {
-                          ref.invalidate(payrollListProvider(selectedMonth));
-                          await ref.read(payrollListProvider(selectedMonth).future);
-                        },
-                        child: ListView.separated(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: list.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 8),
-                          itemBuilder: (_, i) => _PayrollCardWithPay(
-                            payroll: list[i],
-                            onTap: () => context.push('/payroll/${list[i].id}'),
+                    return Column(
+                      children: [
+                        _PayrollSummaryBar(totalNet: totalNet, paidCount: paidCount, total: list.length),
+                        Expanded(
+                          child: RefreshIndicator(
+                            onRefresh: () async {
+                              ref.invalidate(payrollListProvider(selectedMonth));
+                              await ref.read(payrollListProvider(selectedMonth).future);
+                            },
+                            child: ListView.separated(
+                              padding: const EdgeInsets.all(16),
+                              itemCount: list.length,
+                              separatorBuilder: (_, __) => const SizedBox(height: 8),
+                              itemBuilder: (_, i) => _PayrollCardWithPay(
+                                payroll: list[i],
+                                onTap: () => context.push('/payroll/${list[i].id}'),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                  ],
-                );
-              },
+                      ],
+                    );
+                  },
+                ),
+                // ---- Supervisors tab (new — item 6) ----
+                supervisorPayrollList.when(
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Center(child: Text('Error: $e')),
+                  data: (list) {
+                    final supervisors = allSupervisors.valueOrNull ?? [];
+                    final totalNet = list.fold<double>(0, (sum, p) => sum + p.netAmount);
+                    final paidCount = list.where((p) => p.status == 'paid' || p.paymentStatus == 'paid').length;
+
+                    return Column(
+                      children: [
+                        _PayrollSummaryBar(totalNet: totalNet, paidCount: paidCount, total: list.length),
+                        Expanded(
+                          child: RefreshIndicator(
+                            onRefresh: () async {
+                              ref.invalidate(supervisorPayrollListProvider(selectedMonth));
+                              ref.invalidate(allSupervisorsForPayrollProvider);
+                              await ref.read(supervisorPayrollListProvider(selectedMonth).future);
+                            },
+                            child: list.isEmpty
+                                ? ListView(
+                                    children: [
+                                      SizedBox(
+                                        height: 300,
+                                        child: w.EmptyState(
+                                          title: 'No supervisor payroll processed',
+                                          subtitle: 'Process payroll for ${DateFormat('MMMM yyyy').format(selectedMonth)}',
+                                          icon: Icons.payments_outlined,
+                                          actionLabel: 'Process Supervisor Payroll',
+                                          onAction: () => _showProcessSupervisorPayroll(
+                                              context, ref, selectedMonth, supervisors),
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : ListView.separated(
+                                    padding: const EdgeInsets.all(16),
+                                    itemCount: list.length,
+                                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                                    itemBuilder: (_, i) {
+                                      final record = list[i];
+                                      final supervisor = supervisors.firstWhere(
+                                        (s) => s.id == record.supervisorId,
+                                        orElse: () => SupervisorModel(
+                                          id: record.supervisorId,
+                                          profileId: '',
+                                          supervisorCode: record.supervisorCode ?? '',
+                                          name: record.supervisorName ?? 'Supervisor',
+                                          email: '',
+                                          isActive: true,
+                                          monthlySalary: record.monthlySalary,
+                                          createdAt: record.createdAt,
+                                          updatedAt: record.createdAt,
+                                        ),
+                                      );
+                                      return _SupervisorPayrollCard(
+                                        record: record,
+                                        supervisor: supervisor,
+                                      );
+                                    },
+                                  ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ],
             ),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/payroll/process'),
-        icon: const Icon(Icons.calculate_rounded),
-        label: const Text('Process Payroll'),
+      floatingActionButton: AnimatedBuilder(
+        animation: _tabController,
+        builder: (context, _) => FloatingActionButton.extended(
+          onPressed: () => _tabController.index == 0
+              ? context.push('/payroll/process')
+              : _showProcessSupervisorPayroll(
+                  context, ref, selectedMonth, allSupervisors.valueOrNull ?? []),
+          icon: const Icon(Icons.calculate_rounded),
+          label: Text(_tabController.index == 0
+              ? 'Process Payroll'
+              : 'Process Supervisor'),
+        ),
+      ),
+    );
+  }
+
+  void _showProcessSupervisorPayroll(BuildContext context, WidgetRef ref,
+      DateTime month, List<SupervisorModel> supervisors) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => _ProcessSupervisorPayrollSheet(
+        month: month,
+        supervisors: supervisors,
       ),
     );
   }
@@ -307,6 +440,237 @@ Widget build(BuildContext context, WidgetRef ref) {
     ),
   );
 }
+}
+
+class _SupervisorPayrollCard extends ConsumerWidget {
+  final SupervisorPayrollModel record;
+  final SupervisorModel supervisor;
+
+  const _SupervisorPayrollCard({required this.record, required this.supervisor});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final paymentEnabled = ref.watch(paymentModuleEnabledProvider);
+    final isPaid = record.status == 'paid' || record.paymentStatus == 'paid';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.secondary200),
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor: AppColors.accent100,
+                  child: Text(
+                    supervisor.name.isNotEmpty ? supervisor.name[0].toUpperCase() : 'S',
+                    style: const TextStyle(
+                        color: AppColors.accent600,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: 'Inter'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(supervisor.name, style: theme.textTheme.titleMedium),
+                      Text(supervisor.supervisorCode,
+                          style: theme.textTheme.bodySmall
+                              ?.copyWith(color: AppColors.primary500)),
+                      if (record.bonus > 0 || record.deduction > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            '${record.bonus > 0 ? '+${CurrencyUtils.format(record.bonus)} bonus  ' : ''}${record.deduction > 0 ? '-${CurrencyUtils.format(record.deduction)} deduction' : ''}',
+                            style: theme.textTheme.bodySmall,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(CurrencyUtils.format(record.netAmount),
+                        style: theme.textTheme.titleMedium
+                            ?.copyWith(color: AppColors.primary600)),
+                    const SizedBox(height: 4),
+                    w.StatusBadge(status: isPaid ? 'paid' : record.status),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (!isPaid)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Row(
+                children: [
+                  if (paymentEnabled)
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.account_balance_wallet_rounded, size: 16),
+                        label: const Text('Pay via UPI'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.success600,
+                          side: const BorderSide(color: AppColors.success500),
+                        ),
+                        onPressed: () => w.UpiPaymentHelper
+                            .paySupervisorSalary(context, ref, record, supervisor),
+                      ),
+                    ),
+                  if (paymentEnabled) const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.check_rounded, size: 16),
+                      label: const Text('Mark Paid'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary600,
+                        side: const BorderSide(color: AppColors.primary500),
+                      ),
+                      onPressed: () async {
+                        await ref
+                            .read(supervisorPayrollRepositoryProvider)
+                            .markAsPaid(record.id);
+                        ref.invalidate(supervisorPayrollListProvider(
+                            ref.read(selectedPayrollMonthProvider)));
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProcessSupervisorPayrollSheet extends ConsumerStatefulWidget {
+  final DateTime month;
+  final List<SupervisorModel> supervisors;
+  const _ProcessSupervisorPayrollSheet({required this.month, required this.supervisors});
+
+  @override
+  ConsumerState<_ProcessSupervisorPayrollSheet> createState() =>
+      _ProcessSupervisorPayrollSheetState();
+}
+
+class _ProcessSupervisorPayrollSheetState
+    extends ConsumerState<_ProcessSupervisorPayrollSheet> {
+  String? _selectedSupervisorId;
+  final _bonusController = TextEditingController(text: '0');
+  final _deductionController = TextEditingController(text: '0');
+  bool _isProcessing = false;
+
+  @override
+  void dispose() {
+    _bonusController.dispose();
+    _deductionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _process(BuildContext sheetContext) async {
+    if (_selectedSupervisorId == null) return;
+    setState(() => _isProcessing = true);
+    try {
+      final supervisor =
+          widget.supervisors.firstWhere((s) => s.id == _selectedSupervisorId);
+      await ref.read(supervisorPayrollRepositoryProvider).processMonth(
+            supervisor.id,
+            widget.month.month,
+            widget.month.year,
+            supervisor.monthlySalary,
+            bonus: double.tryParse(_bonusController.text) ?? 0,
+            deduction: double.tryParse(_deductionController.text) ?? 0,
+          );
+      ref.invalidate(supervisorPayrollListProvider(widget.month));
+      if (mounted) Navigator.of(sheetContext).pop();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(ErrorUtils.friendly(e)), backgroundColor: AppColors.error500),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Process Supervisor Payroll', style: Theme.of(context).textTheme.titleLarge),
+          Text(DateFormat('MMMM yyyy').format(widget.month),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.secondary500)),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            value: _selectedSupervisorId,
+            decoration: const InputDecoration(labelText: 'Supervisor'),
+            items: widget.supervisors
+                .map((s) => DropdownMenuItem(
+                    value: s.id,
+                    child: Text('${s.name} (₹${s.monthlySalary.toStringAsFixed(0)}/mo)')))
+                .toList(),
+            onChanged: (v) => setState(() => _selectedSupervisorId = v),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _bonusController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Bonus'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextFormField(
+                  controller: _deductionController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Deduction'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: (_selectedSupervisorId == null || _isProcessing)
+                  ? null
+                  : () => _process(context),
+              child: _isProcessing
+                  ? const SizedBox(
+                      height: 20, width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('Process'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _DayBadge extends StatelessWidget {
