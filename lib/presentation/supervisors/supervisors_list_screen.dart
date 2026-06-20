@@ -352,7 +352,7 @@ class _SupervisorFormScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Error: $e'),
+              content: Text(ErrorUtils.friendly(e)),
               backgroundColor: AppColors.error500),
         );
       }
@@ -425,7 +425,9 @@ class _SupervisorFormScreenState
               const SizedBox(height: 16),
               TextFormField(
                 controller: _usernameController,
-                textCapitalization: TextCapitalization.characters,
+                // See login_screen.dart for why we don't force
+                // TextCapitalization here — value is uppercased
+                // programmatically before use (line ~295).
                 readOnly: isEditing,
                 decoration: InputDecoration(
                   labelText: 'Username *',
