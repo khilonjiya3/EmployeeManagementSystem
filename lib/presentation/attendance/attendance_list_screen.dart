@@ -298,10 +298,7 @@ class _AttendanceCard extends ConsumerWidget {
     final present = details.where((d) => d.status == 'present').length;
     final absent = details.where((d) => d.status == 'absent').length;
 
-    return InkWell(
-      onTap: () => context.push('/attendance/${attendance.id}/detail'),
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
+    return Container(
         decoration: BoxDecoration(
           color: theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(12),
@@ -389,9 +386,12 @@ class _AttendanceCard extends ConsumerWidget {
             ],
             const Divider(height: 1),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 4,
+                runSpacing: 0,
                 children: [
                   if (attendance.latitude != null &&
                       attendance.longitude != null)
@@ -420,8 +420,7 @@ class _AttendanceCard extends ConsumerWidget {
             ),
           ],
         ),
-      ),
-    );
+      );
   }
 
   Future<void> _viewLocation(
