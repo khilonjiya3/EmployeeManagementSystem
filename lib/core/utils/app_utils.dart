@@ -1,6 +1,44 @@
 import 'package:intl/intl.dart';
 import '../constants/app_constants.dart';
 
+/// Translates raw exception text (often a raw Postgres/Supabase error)
+/// into something a user can actually understand. Centralized here so
+/// every screen's catch block can use the same logic instead of showing
+/// "PostgrestException(message: ..., code: 23505, ...)" to users.
+class ErrorUtils {
+  ErrorUtils._();
+
+  static String friendly(Object e) {
+    final raw = e.toString();
+
+    if (raw.contains('already in use by another employee or supervisor')) {
+      return 'This UPI ID is already in use by another employee or supervisor. Please use a different one.';
+    }
+    if (raw.contains('Login already exists for this employee code')) {
+      return 'A login already exists for this employee.';
+    }
+    if (raw.toLowerCase().contains('duplicate key') &&
+        raw.contains('upi_id')) {
+      return 'This UPI ID is already in use. Please use a different one.';
+    }
+    if (raw.toLowerCase().contains('duplicate key') &&
+        (raw.contains('email') || raw.contains('employee_code') || raw.contains('supervisor_code'))) {
+      return 'This username/code is already taken. Please choose another.';
+    }
+    if (raw.contains('SocketException') || raw.contains('Failed host lookup')) {
+      return 'No internet connection. Please check your network and try again.';
+    }
+
+    return raw
+        .replaceAll('PostgrestException(message: ', '')
+        .replaceAll('AuthException: ', '')
+        .replaceAll('Exception: ', '')
+        .split(', code:')
+        .first
+        .trim();
+  }
+}
+
 class DateUtils {
   DateUtils._();
 
