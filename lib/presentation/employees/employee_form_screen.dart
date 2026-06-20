@@ -172,7 +172,7 @@ class _EmployeeFormScreenState extends ConsumerState<EmployeeFormScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error500),
+          SnackBar(content: Text(ErrorUtils.friendly(e)), backgroundColor: AppColors.error500),
         );
       }
     } finally {
@@ -500,7 +500,7 @@ class _EmployeeDetailBodyState extends ConsumerState<_EmployeeDetailBody> {
 
         showDialog(
           context: context,
-          builder: (_) => AlertDialog(
+          builder: (dialogContext) => AlertDialog(
             title: const Text('Login Created Successfully'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
@@ -565,7 +565,7 @@ class _EmployeeDetailBodyState extends ConsumerState<_EmployeeDetailBody> {
             ),
             actions: [
               FilledButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: () => Navigator.of(dialogContext).pop(),
                 child: const Text('Done'),
               ),
             ],
