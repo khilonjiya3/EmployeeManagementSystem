@@ -10,6 +10,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/app_utils.dart';
 import '../../data/models/app_models.dart';
 import '../../data/repositories/auth_repository.dart';
+import 'employees_list_screen.dart' show employeesProvider;
 
 final _employeeDetailProvider = FutureProvider.autoDispose.family<EmployeeModel?, String>((ref, id) {
   return ref.watch(employeeRepositoryProvider).getById(id);
@@ -167,6 +168,7 @@ class _EmployeeFormScreenState extends ConsumerState<EmployeeFormScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(isEditing ? 'Employee updated' : 'Employee created'), backgroundColor: AppColors.success500),
         );
+        ref.invalidate(employeesProvider);
         context.pop();
       }
     } catch (e) {
@@ -610,6 +612,7 @@ class _EmployeeDetailBodyState extends ConsumerState<_EmployeeDetailBody> {
               content: Text('Status updated'),
               backgroundColor: AppColors.success500),
         );
+        ref.invalidate(employeesProvider);
         context.pop();
       }
     } catch (e) {
