@@ -1149,9 +1149,10 @@ class PaymentRepository {
     required String referenceNote,
   }) {
     final amt = amount.toStringAsFixed(2);
+    final encodedUpiId = Uri.encodeComponent(upiId.trim());
     final encodedName = Uri.encodeComponent(payeeName);
     final encodedNote = Uri.encodeComponent(referenceNote);
-    return 'upi://pay?pa=$upiId&pn=$encodedName&am=$amt&cu=INR&tn=$encodedNote';
+    return 'upi://pay?pa=$encodedUpiId&pn=$encodedName&am=$amt&cu=INR&tn=$encodedNote';
   }
 
   Future<void> logPayment({
