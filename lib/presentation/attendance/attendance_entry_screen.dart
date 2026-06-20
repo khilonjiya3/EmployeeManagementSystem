@@ -58,6 +58,33 @@ String? _selectedLocation;
         .read(attendanceRepositoryProvider)
         .getById(widget.attendanceId!);
     if (att == null || !mounted) return;
+
+    // Item 7: only the supervisor who originally submitted this
+    // attendance (or an admin) may edit it. Other supervisors must not
+    // be able to take over someone else's pending/approved record.
+    final profile = ref.read(currentProfileProvider).valueOrNull;
+    if (profile != null && profile.role != 'admin') {
+      final client = ref.read(supabaseProvider);
+      final sup = await client
+          .from('supervisors')
+          .select('id')
+          .eq('profile_id', profile.id)
+          .maybeSingle();
+      final currentSupervisorId = sup?['id']?.toString();
+      if (currentSupervisorId != null &&
+          currentSupervisorId != att.supervisorId) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'This attendance was submitted by another supervisor. You can only edit attendance you submitted yourself.'),
+            backgroundColor: AppColors.error500,
+          ));
+          context.pop();
+        }
+        return;
+      }
+    }
+
     _selectedDate = att.attendanceDate;
     _selectedLocationId = att.locationId;
     _selectedLocation = att.locationName;
@@ -70,6 +97,7 @@ String? _selectedLocation;
       }
     }
     setState(() {});
+    _applyFilters();
   }
 
   @override
@@ -185,16 +213,26 @@ void dispose() {
   }
 
   void _filterEmployees(String query) {
-  setState(() {
-    _filteredEmployees = query.isEmpty
-        ? List.from(_allEmployees)
-        : _allEmployees.where(
-            (e) => e.name
-                .toLowerCase()
-                .contains(query.toLowerCase()),
-          ).toList();
-  });
-}
+    _applyFilters(searchQuery: query);
+  }
+
+  void _applyFilters({String? searchQuery}) {
+    final query = searchQuery ?? _searchController.text;
+    setState(() {
+      _filteredEmployees = _allEmployees.where((e) {
+        final matchesSearch = query.isEmpty ||
+            e.name.toLowerCase().contains(query.toLowerCase());
+        // Only show employees linked to the selected location. If an
+        // employee has no location set, we still show them (treat as
+        // unassigned/shared) rather than silently hiding them — admins
+        // can set employees.location_id to tighten this further.
+        final matchesLocation = _selectedLocationId == null ||
+            e.locationId == null ||
+            e.locationId == _selectedLocationId;
+        return matchesSearch && matchesLocation;
+      }).toList();
+    });
+  }
 
   void _bulkMarkAll(AttendanceStatus status) {
     setState(() {
@@ -223,12 +261,41 @@ void dispose() {
       final supervisorId = sup?['id']?.toString();
       if (supervisorId == null) throw Exception('Supervisor not found');
 
+      final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+
+      // Items 4 & 7: only ONE attendance record may exist per
+      // (location, date), regardless of which supervisor submits it.
+      // If one already exists, block creating a duplicate — the
+      // supervisor who owns it must EDIT it instead (and any other
+      // supervisor is blocked outright while it's pending/approved).
+      if (!isEditing && _selectedLocationId != null) {
+        final existing = await client
+            .from('attendance')
+            .select('id, supervisor_id')
+            .eq('location_id', _selectedLocationId!)
+            .eq('attendance_date', dateStr)
+            .maybeSingle();
+
+        if (existing != null) {
+          final isOwnRecord = existing['supervisor_id'] == supervisorId;
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(isOwnRecord
+                  ? 'You already submitted attendance for this location and date. Please edit that record instead.'
+                  : 'Another supervisor has already submitted attendance for this location and date.'),
+              backgroundColor: AppColors.error500,
+            ));
+          }
+          setState(() => _isLoading = false);
+          return;
+        }
+      }
+
       final attendanceData = {
   'supervisor_id': supervisorId,
   'location_id': _selectedLocationId,
   'location_name': _selectedLocation,
-  'attendance_date':
-      DateFormat('yyyy-MM-dd').format(_selectedDate),
+  'attendance_date': dateStr,
   'work_site_name':
       _workSiteController.text.trim(),
   'work_description': null,
@@ -414,6 +481,7 @@ Widget build(BuildContext context) {
       _selectedLocationId = selected.id;
       _selectedLocation = selected.name;
     });
+    _applyFilters();
   },
   validator: (value) {
     if (value == null || value.isEmpty) {
