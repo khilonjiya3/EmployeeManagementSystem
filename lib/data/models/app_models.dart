@@ -84,6 +84,8 @@ class EmployeeModel extends Equatable {
   final DateTime joiningDate;
   final String? departmentId;
   final String? departmentName;
+  final String? locationId;
+  final String? locationName;
   final String? designation;
   final double dailyWageRate;
   final String? employeePhotoUrl;
@@ -107,6 +109,8 @@ class EmployeeModel extends Equatable {
     required this.joiningDate,
     this.departmentId,
     this.departmentName,
+    this.locationId,
+    this.locationName,
     this.designation,
     required this.dailyWageRate,
     this.employeePhotoUrl,
@@ -131,6 +135,8 @@ class EmployeeModel extends Equatable {
     joiningDate: DateTime.parse(json['joining_date'] as String),
     departmentId: json['department_id'] as String?,
     departmentName: json['departments'] != null ? (json['departments'] as Map)['name'] as String? : null,
+    locationId: json['location_id'] as String?,
+    locationName: json['locations'] != null ? (json['locations'] as Map)['name'] as String? : null,
     designation: json['designation'] as String?,
     dailyWageRate: (json['daily_wage_rate'] as num).toDouble(),
     employeePhotoUrl: json['employee_photo_url'] as String?,
@@ -152,6 +158,7 @@ class EmployeeModel extends Equatable {
     'aadhaar_number': aadhaarNumber,
     'joining_date': joiningDate.toIso8601String().split('T').first,
     'department_id': departmentId,
+    'location_id': locationId,
     'designation': designation,
     'daily_wage_rate': dailyWageRate,
     'employee_photo_url': employeePhotoUrl,
@@ -172,6 +179,7 @@ class EmployeeModel extends Equatable {
     String? aadhaarNumber,
     DateTime? joiningDate,
     String? departmentId,
+    String? locationId,
     String? designation,
     double? dailyWageRate,
     String? employeePhotoUrl,
@@ -190,6 +198,7 @@ class EmployeeModel extends Equatable {
     aadhaarNumber: aadhaarNumber ?? this.aadhaarNumber,
     joiningDate: joiningDate ?? this.joiningDate,
     departmentId: departmentId ?? this.departmentId,
+    locationId: locationId ?? this.locationId,
     designation: designation ?? this.designation,
     dailyWageRate: dailyWageRate ?? this.dailyWageRate,
     employeePhotoUrl: employeePhotoUrl ?? this.employeePhotoUrl,
@@ -859,6 +868,8 @@ class SupervisorPayrollModel extends Equatable {
   final DateTime? paidAt;
   final String? remarks;
   final DateTime createdAt;
+  final String? supervisorName;
+  final String? supervisorCode;
 
   const SupervisorPayrollModel({
     required this.id,
@@ -877,6 +888,8 @@ class SupervisorPayrollModel extends Equatable {
     this.paidAt,
     this.remarks,
     required this.createdAt,
+    this.supervisorName,
+    this.supervisorCode,
   });
 
   factory SupervisorPayrollModel.fromJson(Map<String, dynamic> json) =>
@@ -901,6 +914,12 @@ class SupervisorPayrollModel extends Equatable {
             : null,
         remarks: json['remarks'] as String?,
         createdAt: DateTime.parse(json['created_at'] as String),
+        supervisorName: json['supervisors'] != null
+            ? (json['supervisors'] as Map)['name'] as String?
+            : null,
+        supervisorCode: json['supervisors'] != null
+            ? (json['supervisors'] as Map)['supervisor_code'] as String?
+            : null,
       );
 
   bool get isPaid => paymentStatus == 'paid' || status == 'paid';
