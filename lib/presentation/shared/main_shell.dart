@@ -91,7 +91,7 @@ class MainShell extends ConsumerWidget {
 
     // Employee gets a minimal, self-contained nav: their dashboard already
     // shows attendance + payroll history inline, so they only need
-    // Dashboard, Notifications, and Settings — not the supervisor-only
+    // Dashboard, Notifications, and Settings \u{2014} not the supervisor-only
     // screens (Attendance/Expenses/Reports), which query by supervisor_id
     // and would break or show nothing meaningful for an employee profile.
     final employeeItems = [

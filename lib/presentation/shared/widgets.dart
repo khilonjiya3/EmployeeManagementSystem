@@ -524,22 +524,39 @@ class UpiPaymentHelper {
     }
 
     bool launched = false;
+    // IMPORTANT: we deliberately do NOT gate this on canLaunchUrl().
+    // canLaunchUrl() is well known to return false-negatives for custom
+    // URI schemes (like upi://) on many Android versions/OEM skins, even
+    // when a UPI app IS installed and able to handle it — which is
+    // exactly what was blocking real launches before. We instead try
+    // the launch directly, in safest-to-most-permissive order, and only
+    // treat it as failed if every attempt throws or returns false.
     try {
-      // Pre-check avoids relying solely on launchUrl's internal exception
-      // handling, which on some Android/url_launcher versions can surface
-      // a platform exception instead of a clean `false` when there is no
-      // app registered to handle the `upi://` scheme.
-      final canLaunch = await canLaunchUrl(parsedUri);
-      if (canLaunch) {
+      launched = await launchUrl(
+        parsedUri,
+        mode: LaunchMode.externalNonBrowserApplication,
+      );
+    } catch (_) {
+      launched = false;
+    }
+
+    if (!launched) {
+      try {
         launched = await launchUrl(
           parsedUri,
           mode: LaunchMode.externalApplication,
         );
-      } else {
+      } catch (_) {
         launched = false;
       }
-    } catch (_) {
-      launched = false;
+    }
+
+    if (!launched) {
+      try {
+        launched = await launchUrl(parsedUri);
+      } catch (_) {
+        launched = false;
+      }
     }
 
     if (!launched) {
@@ -641,7 +658,7 @@ class _PaymentConfirmDialogState extends State<_PaymentConfirmDialog> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Did the UPI payment of â‚¹${widget.amount.toStringAsFixed(2)} to ${widget.payeeName} go through?',
+            'Did the UPI payment of \u{20B9}${widget.amount.toStringAsFixed(2)} to ${widget.payeeName} go through?',
           ),
           const SizedBox(height: 16),
           TextField(
@@ -667,3 +684,4 @@ class _PaymentConfirmDialogState extends State<_PaymentConfirmDialog> {
     );
   }
 }
+
