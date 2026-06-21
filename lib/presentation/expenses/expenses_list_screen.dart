@@ -41,7 +41,7 @@ class ExpensesNotifier extends StateNotifier<AsyncValue<List<ExpenseModel>>> {
     }
   }
 
-  void refresh() => load();
+  Future<void> refresh() => load();
 }
 
 class ExpensesListScreen extends ConsumerStatefulWidget {
