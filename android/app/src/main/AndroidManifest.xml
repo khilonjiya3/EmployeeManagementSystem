@@ -13,8 +13,24 @@
     <queries>
         <intent>
             <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
             <data android:scheme="upi" />
         </intent>
+        <!-- Explicit package visibility for major UPI apps. Belt-and-
+             suspenders alongside the generic "upi" scheme query above —
+             some OEM Android skins (MIUI, ColorOS, etc.) and even some
+             older Android versions enforce stricter package visibility
+             than stock AOSP, so listing apps explicitly by package name
+             increases the odds intent resolution finds them. -->
+        <package android:name="com.google.android.apps.nbu.paisa.user" /> <!-- Google Pay -->
+        <package android:name="com.phonepe.app" /> <!-- PhonePe -->
+        <package android:name="net.one97.paytm" /> <!-- Paytm -->
+        <package android:name="in.org.npci.upiapp" /> <!-- BHIM -->
+        <package android:name="in.amazon.mShop.android.shopping" /> <!-- Amazon Pay -->
+        <package android:name="com.dreamplug.androidapp" /> <!-- CRED -->
+        <package android:name="com.whatsapp" /> <!-- WhatsApp Pay -->
+        <package android:name="com.csam.icici.bank.imobile" /> <!-- iMobile Pay -->
+        <package android:name="com.sbi.upi" /> <!-- SBI Pay -->
     </queries>
 
     <application
