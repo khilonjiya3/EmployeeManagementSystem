@@ -1219,12 +1219,16 @@ class PaymentRepository {
     required String payeeName,
     required double amount,
     required String referenceNote,
+    required String transactionRef,
   }) {
     final amt = amount.toStringAsFixed(2);
     final encodedUpiId = Uri.encodeComponent(upiId.trim());
     final encodedName = Uri.encodeComponent(payeeName);
     final encodedNote = Uri.encodeComponent(referenceNote);
-    return 'upi://pay?pa=$encodedUpiId&pn=$encodedName&am=$amt&cu=INR&tn=$encodedNote';
+    final encodedTr = Uri.encodeComponent(transactionRef);
+    // tr (transaction reference) is the critical addition here \u{2014} see
+    // the comment on _makeTransactionRef in widgets.dart for why.
+    return 'upi://pay?pa=$encodedUpiId&pn=$encodedName&am=$amt&cu=INR&tn=$encodedNote&tr=$encodedTr';
   }
 
   Future<void> logPayment({
