@@ -530,19 +530,18 @@ class UpiPaymentHelper {
   }
 
 static Future<bool> _launchExplicit(String uri, String packageName) async {
-  try {
-    final intent = AndroidIntent(
-      action: 'android.intent.action.VIEW',
-      data: uri,
-    );
-
-    await intent.launch();
-    return true;
-  } catch (e) {
-    debugPrint('UPI Launch Error: $e');
-    return false;
+    try {
+      final intent = AndroidIntent(
+        action: 'action_view',
+        data: uri,
+        package: packageName,
+      );
+      await intent.launch();
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
-}
 
   
 
