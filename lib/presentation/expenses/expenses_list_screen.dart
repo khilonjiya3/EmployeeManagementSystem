@@ -84,7 +84,7 @@ class _ExpensesListScreenState extends ConsumerState<ExpensesListScreen> with Si
           if (profile?.isAdmin == true)
             IconButton(
               icon: const Icon(Icons.groups_rounded),
-              tooltip: 'View by Supervisor',
+              tooltip: 'Supervisor Wise Expense',
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const ExpenseSupervisorDrilldownScreen()),
@@ -115,7 +115,10 @@ class _ExpensesListScreenState extends ConsumerState<ExpensesListScreen> with Si
                 onAction: profile?.isSupervisor == true ? () => context.push('/expenses/new') : null,
               )
             : RefreshIndicator(
-                onRefresh: () async => ref.read(expensesProvider.notifier).refresh(),
+                onRefresh: () async {
+                  ref.invalidate(companyProvider);
+                  await ref.read(expensesProvider.notifier).refresh();
+                },
                 child: ListView.separated(
                   padding: const EdgeInsets.all(16),
                   itemCount: list.length,
@@ -189,7 +192,7 @@ class _ExpenseCard extends ConsumerWidget {
                   Text(expense.expenseName, style: theme.textTheme.titleMedium, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 2),
                   Text(
-                    '${StringUtils.capitalize(expense.category)} â€¢ ${DateFormat('dd/MM/yyyy').format(expense.expenseDate)}',
+                    '${StringUtils.capitalize(expense.category)} \u{2022} ${DateFormat('dd/MM/yyyy').format(expense.expenseDate)}',
                     style: theme.textTheme.bodySmall,
                   ),
                   if (expense.supervisorName != null)
@@ -404,7 +407,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
               TextFormField(
                 controller: _amountController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Amount (â‚¹) *', prefixIcon: Icon(Icons.currency_rupee_rounded)),
+                decoration: const InputDecoration(labelText: 'Amount (\u{20B9}) *', prefixIcon: Icon(Icons.currency_rupee_rounded)),
                 validator: ValidationUtils.validateAmount,
               ),
               const SizedBox(height: 24),
@@ -622,8 +625,8 @@ class ExpenseDetailScreen extends ConsumerWidget {
           _Row(label: 'Date', value: DateFormat('dd MMMM yyyy').format(exp.expenseDate)),
           _Row(label: 'Category', value: StringUtils.capitalize(exp.category)),
           if (exp.description != null) _Row(label: 'Description', value: exp.description!),
-          _Row(label: 'Submitted', value: DateFormat('dd/MM/yyyy HH:mm').format(exp.createdAt)),
-          if (exp.reviewedAt != null) _Row(label: 'Reviewed', value: DateFormat('dd/MM/yyyy HH:mm').format(exp.reviewedAt!)),
+          _Row(label: 'Submitted', value: DateFormat('dd/MM/yyyy HH:mm').format(exp.createdAt.toLocal())),
+          if (exp.reviewedAt != null) _Row(label: 'Reviewed', value: DateFormat('dd/MM/yyyy HH:mm').format(exp.reviewedAt!.toLocal())),
           if (exp.utrReference != null) _Row(label: 'UTR Reference', value: exp.utrReference!),
         ],
       ),
@@ -726,7 +729,7 @@ class ExpenseDetailScreen extends ConsumerWidget {
           Expanded(
             child: Text(
               exp.utrReference != null
-                  ? 'Paid via UPI Â· UTR: ${exp.utrReference}'
+                  ? 'Paid via UPI \u{B7} UTR: ${exp.utrReference}'
                   : 'Paid via UPI',
               style: const TextStyle(color: AppColors.success700, fontFamily: 'Inter', fontWeight: FontWeight.w600),
             ),
@@ -955,7 +958,7 @@ class _AttachmentViewerScreenState extends State<AttachmentViewerScreen> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 32),
                         child: Text(
-                          'If this persists, confirm the storage bucket is set to Public in Supabase Dashboard â†’ Storage.',
+                          'If this persists, confirm the storage bucket is set to Public in Supabase Dashboard \u{2192} Storage.',
                           textAlign: TextAlign.center,
                           style: TextStyle(color: Colors.white38, fontSize: 11),
                         ),
@@ -986,7 +989,7 @@ class _AttachmentViewerScreenState extends State<AttachmentViewerScreen> {
   }
 }
 
-/// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ SUPERVISOR â†’ MONTH DRILLDOWN (bug #9) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/// \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} SUPERVISOR \u{2192} MONTH DRILLDOWN (bug #9) \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}
 
 class ExpenseSupervisorDrilldownScreen extends ConsumerStatefulWidget {
   const ExpenseSupervisorDrilldownScreen({super.key});
@@ -1073,7 +1076,7 @@ class _ExpenseSupervisorDrilldownScreenState extends ConsumerState<ExpenseSuperv
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(supervisorName, style: Theme.of(context).textTheme.titleMedium),
-                              Text('${expenses.length} expenses${pendingCount > 0 ? " Â· $pendingCount pending" : ""}',
+                              Text('${expenses.length} expenses${pendingCount > 0 ? " \u{B7} $pendingCount pending" : ""}',
                                   style: Theme.of(context).textTheme.bodySmall),
                             ],
                           ),
@@ -1240,7 +1243,7 @@ class ExpenseMonthListScreen extends StatelessWidget {
                             children: [
                               Text(exp.expenseName, style: Theme.of(context).textTheme.titleSmall),
                               Text(
-                                '${StringUtils.capitalize(exp.category)} â€¢ ${DateFormat('dd/MM/yyyy').format(exp.expenseDate)}',
+                                '${StringUtils.capitalize(exp.category)} \u{2022} ${DateFormat('dd/MM/yyyy').format(exp.expenseDate)}',
                                 style: Theme.of(context).textTheme.bodySmall,
                               ),
                             ],
