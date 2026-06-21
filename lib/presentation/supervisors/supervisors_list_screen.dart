@@ -37,7 +37,7 @@ class SupervisorsNotifier
   void refresh() => load();
 }
 
-// â”€â”€â”€ Supervisor Payroll providers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// \u{2500}\u{2500}\u{2500} Supervisor Payroll providers \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}
 
 final _supervisorPayrollProvider = FutureProvider.autoDispose
     .family<List<SupervisorPayrollModel>, String>((ref, supervisorId) {
@@ -46,7 +46,7 @@ final _supervisorPayrollProvider = FutureProvider.autoDispose
       .getForSupervisor(supervisorId);
 });
 
-// â”€â”€â”€ List Screen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// \u{2500}\u{2500}\u{2500} List Screen \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}
 
 class SupervisorsListScreen extends ConsumerStatefulWidget {
   const SupervisorsListScreen({super.key});
@@ -205,7 +205,7 @@ class _SupervisorCard extends StatelessWidget {
   }
 }
 
-// â”€â”€â”€ Form Screen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// \u{2500}\u{2500}\u{2500} Form Screen \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}
 
 class SupervisorFormScreen extends ConsumerStatefulWidget {
   final String? supervisorId;
@@ -462,7 +462,7 @@ class _SupervisorFormScreenState
               TextFormField(
                 controller: _usernameController,
                 // See login_screen.dart for why we don't force
-                // TextCapitalization here â€” value is uppercased
+                // TextCapitalization here \u{2014} value is uppercased
                 // programmatically before use (line ~295).
                 readOnly: isEditing,
                 decoration: InputDecoration(
@@ -492,7 +492,7 @@ class _SupervisorFormScreenState
               const SizedBox(height: 16),
               InputDecorator(
                 decoration: const InputDecoration(
-                  labelText: 'Assigned Location(s) â€” optional',
+                  labelText: 'Assigned Location(s) \u{2014} optional',
                   prefixIcon: Icon(Icons.map_outlined),
                   helperText:
                       'Leave empty to allow attendance submission for ANY location',
@@ -508,8 +508,20 @@ class _SupervisorFormScreenState
                           final selected =
                               _selectedLocationIds.contains(loc.id);
                           return FilterChip(
-                            label: Text(loc.name),
+                            label: Text(
+                              loc.name,
+                              style: TextStyle(
+                                color: selected ? Colors.white : AppColors.secondary800,
+                                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                              ),
+                            ),
                             selected: selected,
+                            showCheckmark: false,
+                            backgroundColor: AppColors.secondary100,
+                            selectedColor: AppColors.primary500,
+                            side: BorderSide(
+                              color: selected ? AppColors.primary500 : AppColors.secondary300,
+                            ),
                             onSelected: (val) {
                               setState(() {
                                 if (val) {
@@ -528,7 +540,7 @@ class _SupervisorFormScreenState
                 controller: _salaryController,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
-                  labelText: 'Monthly Salary (â‚¹)',
+                  labelText: 'Monthly Salary (\u{20B9})',
                   prefixIcon:
                       Icon(Icons.account_balance_wallet_outlined),
                   helperText:
@@ -676,7 +688,7 @@ class _SupervisorFormScreenState
   }
 }
 
-// â”€â”€â”€ Detail Screen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// \u{2500}\u{2500}\u{2500} Detail Screen \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}
 
 class SupervisorDetailScreen extends ConsumerWidget {
   final String id;
@@ -891,7 +903,7 @@ class SupervisorDetailScreen extends ConsumerWidget {
   }
 }
 
-// â”€â”€â”€ Supervisor Salary Screen (admin view) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// \u{2500}\u{2500}\u{2500} Supervisor Salary Screen (admin view) \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}
 
 class SupervisorSalaryScreen extends ConsumerStatefulWidget {
   final SupervisorModel supervisor;
@@ -917,7 +929,7 @@ class _SupervisorSalaryScreenState
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(
-            'Process Salary â€” ${DateFormat('MMMM yyyy').format(DateTime.now())}'),
+            'Process Salary \u{2014} ${DateFormat('MMMM yyyy').format(DateTime.now())}'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -930,14 +942,14 @@ class _SupervisorSalaryScreenState
               TextField(
                 controller: bonusCtrl,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Bonus (â‚¹)'),
+                decoration: const InputDecoration(labelText: 'Bonus (\u{20B9})'),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: deductionCtrl,
                 keyboardType: TextInputType.number,
                 decoration:
-                    const InputDecoration(labelText: 'Deduction (â‚¹)'),
+                    const InputDecoration(labelText: 'Deduction (\u{20B9})'),
               ),
               const SizedBox(height: 8),
               TextField(
@@ -998,7 +1010,7 @@ class _SupervisorSalaryScreenState
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${widget.supervisor.name} â€” Salary'),
+        title: Text('${widget.supervisor.name} \u{2014} Salary'),
         actions: [
           TextButton.icon(
             icon: const Icon(Icons.add_rounded),
