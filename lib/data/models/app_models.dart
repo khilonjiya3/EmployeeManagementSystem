@@ -795,7 +795,7 @@ class NotificationModel extends Equatable {
 }
 
 
-// Add to app_models.dart â€” append at bottom
+// Add to app_models.dart \u{2014} append at bottom
 
 class CompanyModel extends Equatable {
   final String id;
@@ -843,7 +843,7 @@ class CompanyModel extends Equatable {
         phone: json['phone'] as String?,
         email: json['email'] as String?,
         gstin: json['gstin'] as String?,
-        currencySymbol: json['currency_symbol'] as String? ?? 'â‚¹',
+        currencySymbol: json['currency_symbol'] as String? ?? '\u{20B9}',
         timezone: json['timezone'] as String? ?? 'Asia/Kolkata',
         paymentModuleEnabled: json['payment_module_enabled'] as bool? ?? false,
         createdAt: DateTime.parse(json['created_at'] as String),
