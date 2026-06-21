@@ -62,7 +62,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
   }
 }
 
-// ─────────────────────── ATTENDANCE REPORT ───────────────────────
+// \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} ATTENDANCE REPORT \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}
 
 class _AttendanceReport extends ConsumerStatefulWidget {
   const _AttendanceReport();
@@ -120,7 +120,7 @@ class _AttendanceReportState extends ConsumerState<_AttendanceReport> {
     }
   }
 
-  // Build summary: employee → {present, absent, total}
+  // Build summary: employee \u{2192} {present, absent, total}
   Map<String, Map<String, dynamic>> _buildEmployeeSummary() {
     final Map<String, Map<String, dynamic>> summary = {};
     for (final att in _data) {
@@ -341,7 +341,7 @@ class _AttendanceReportState extends ConsumerState<_AttendanceReport> {
                                                 .textTheme
                                                 .titleSmall),
                                         Text(
-                                            '${e['code']} • ${e['supervisor']}',
+                                            '${e['code']} \u{2022} ${e['supervisor']}',
                                             style: Theme.of(context)
                                                 .textTheme
                                                 .bodySmall),
@@ -512,7 +512,7 @@ class _AttendanceReportState extends ConsumerState<_AttendanceReport> {
   }
 }
 
-// ─────────────────────── EXPENSE REPORT ───────────────────────
+// \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} EXPENSE REPORT \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}
 
 class _ExpenseReport extends ConsumerStatefulWidget {
   const _ExpenseReport();
@@ -880,7 +880,7 @@ class _ExpenseReportState extends ConsumerState<_ExpenseReport> {
                                             .textTheme
                                             .titleSmall),
                                     Text(
-                                        '${StringUtils.capitalize(e.category)} • ${DateFormat('dd/MM').format(e.expenseDate)}',
+                                        '${StringUtils.capitalize(e.category)} \u{2022} ${DateFormat('dd/MM').format(e.expenseDate)}',
                                         style: Theme.of(context)
                                             .textTheme
                                             .bodySmall),
@@ -918,7 +918,7 @@ class _ExpenseReportState extends ConsumerState<_ExpenseReport> {
   }
 }
 
-// ─────────────────────── PAYROLL REPORT ───────────────────────
+// \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500} PAYROLL REPORT \u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}
 
 class _PayrollReport extends ConsumerStatefulWidget {
   const _PayrollReport();
@@ -1177,7 +1177,7 @@ class _PayrollReportState extends ConsumerState<_PayrollReport> {
                                 children: [
                                   Expanded(
                                     child: Text(
-                                        '${p.employeeCode} • ${p.effectiveDays.toStringAsFixed(1)} days @ ₹${p.dailyWageRate.toStringAsFixed(0)}/day',
+                                        '${p.employeeCode} \u{2022} ${p.effectiveDays.toStringAsFixed(1)} days @ \u{20B9}${p.dailyWageRate.toStringAsFixed(0)}/day',
                                         style: Theme.of(context)
                                             .textTheme
                                             .bodySmall),
