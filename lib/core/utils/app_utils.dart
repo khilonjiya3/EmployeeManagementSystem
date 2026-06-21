@@ -11,8 +11,8 @@ class ErrorUtils {
   static String friendly(Object e) {
     final raw = e.toString();
 
-    if (raw.contains('already in use by another employee or supervisor')) {
-      return 'This UPI ID is already in use by another employee or supervisor. Please use a different one.';
+    if (raw.contains('already registered to another account')) {
+      return 'This UPI ID is already registered to another account. Please use a different one.';
     }
     if (raw.contains('Login already exists for this employee code')) {
       return 'A login already exists for this employee.';
@@ -45,8 +45,14 @@ class DateUtils {
   static String formatDate(DateTime date) =>
       DateFormat(AppConstants.dateFormat).format(date);
 
+  // Fix: timestamps from Supabase (timestamptz columns) parse as UTC.
+  // Formatting a UTC DateTime directly displays UTC time, not the
+  // user's local time \u{2014} this was the cause of "submitted"/"reviewed"
+  // times looking wrong. .toLocal() converts to the device's local
+  // timezone before formatting, exactly once, here, so every call site
+  // using this shared helper is automatically correct.
   static String formatDateTime(DateTime date) =>
-      DateFormat(AppConstants.dateTimeFormat).format(date);
+      DateFormat(AppConstants.dateTimeFormat).format(date.toLocal());
 
   static String formatMonthYear(DateTime date) =>
       DateFormat(AppConstants.monthYearFormat).format(date);
@@ -80,7 +86,7 @@ class CurrencyUtils {
 
   static final _formatter = NumberFormat.currency(
     locale: 'en_IN',
-    symbol: '₹',
+    symbol: '\u{20B9}',
     decimalDigits: 2,
   );
 
@@ -88,11 +94,11 @@ class CurrencyUtils {
 
   static String formatCompact(num amount) {
     if (amount >= 100000) {
-      return '₹${(amount / 100000).toStringAsFixed(1)}L';
+      return '\u{20B9}${(amount / 100000).toStringAsFixed(1)}L';
     } else if (amount >= 1000) {
-      return '₹${(amount / 1000).toStringAsFixed(1)}K';
+      return '\u{20B9}${(amount / 1000).toStringAsFixed(1)}K';
     }
-    return '₹${amount.toStringAsFixed(0)}';
+    return '\u{20B9}${amount.toStringAsFixed(0)}';
   }
 }
 
