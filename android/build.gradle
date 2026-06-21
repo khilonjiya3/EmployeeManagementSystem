@@ -14,24 +14,6 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
-// Force all libraries to use SDK 36 and fix appcompat version
-subprojects {
-    plugins.withId("com.android.library") {
-        android {
-            if (namespace == null) {
-                namespace = project.group ?: "com.placeholder.${project.name}"
-            }
-            compileSdk 36
-        }
-        configurations.all {
-            resolutionStrategy {
-                force "androidx.appcompat:appcompat:1.6.1"
-                force "androidx.core:core:1.12.0"
-            }
-        }
-    }
-}
-
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
 }
