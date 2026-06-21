@@ -257,6 +257,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               trailing: const Icon(Icons.chevron_right_rounded),
               onTap: () => _showManageDepartments(context, ref),
             ),
+            ListTile(
+              leading: const Icon(Icons.lock_reset_rounded),
+              title: const Text('Reset Employee/Supervisor Password'),
+              subtitle: const Text('Set a temporary password if someone is locked out'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => _showResetPassword(context, ref),
+            ),
           ],
 
           // About
@@ -452,6 +459,21 @@ void _showPaymentModuleSettings(BuildContext context, WidgetRef ref) {
         initialChildSize: 0.75,
         expand: false,
         builder: (ctx, controller) => _DepartmentsManager(
+            scrollController: controller, ref: ref),
+      ),
+    );
+  }
+
+  void _showResetPassword(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.8,
+        expand: false,
+        builder: (ctx, controller) => _ResetPasswordSheet(
             scrollController: controller, ref: ref),
       ),
     );
@@ -724,7 +746,7 @@ class _DepartmentsManagerState extends State<_DepartmentsManager> {
     final name = _nameController.text.trim();
     if (name.isEmpty) return;
 
-    // Close using the dialog's own context BEFORE any async work â€” same
+    // Close using the dialog's own context BEFORE any async work \u{2014} same
     // fix pattern as Locations (see _LocationsManagerState._addLocation).
     Navigator.of(dialogContext).pop();
 
@@ -919,6 +941,209 @@ class _PaymentModuleSheetState extends State<_PaymentModuleSheet> {
           const SizedBox(height: 24),
         ],
       ),
+    );
+  }
+}
+
+class _ResetPasswordSheet extends StatefulWidget {
+  final ScrollController scrollController;
+  final WidgetRef ref;
+  const _ResetPasswordSheet({required this.scrollController, required this.ref});
+
+  @override
+  State<_ResetPasswordSheet> createState() => _ResetPasswordSheetState();
+}
+
+class _ResetPasswordSheetState extends State<_ResetPasswordSheet> {
+  List<Map<String, dynamic>> _people = [];
+  List<Map<String, dynamic>> _filtered = [];
+  bool _isLoading = true;
+  bool _isResetting = false;
+  final _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    final client = widget.ref.read(supabaseProvider);
+    try {
+      final employees = await client
+          .from('employees')
+          .select('profile_id, name, employee_code')
+          .not('profile_id', 'is', null);
+      final supervisors = await client
+          .from('supervisors')
+          .select('profile_id, name, supervisor_code')
+          .not('profile_id', 'is', null);
+
+      final people = <Map<String, dynamic>>[
+        ...(employees as List).map((e) => {
+              'profile_id': e['profile_id'],
+              'name': e['name'],
+              'code': e['employee_code'],
+              'role': 'Employee',
+            }),
+        ...(supervisors as List).map((s) => {
+              'profile_id': s['profile_id'],
+              'name': s['name'],
+              'code': s['supervisor_code'],
+              'role': 'Supervisor',
+            }),
+      ];
+      people.sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
+
+      if (mounted) {
+        setState(() {
+          _people = people;
+          _filtered = people;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _filter(String query) {
+    setState(() {
+      _filtered = query.isEmpty
+          ? _people
+          : _people
+              .where((p) =>
+                  (p['name'] as String).toLowerCase().contains(query.toLowerCase()) ||
+                  (p['code'] as String).toLowerCase().contains(query.toLowerCase()))
+              .toList();
+    });
+  }
+
+  Future<void> _confirmReset(Map<String, dynamic> person) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Reset Password?'),
+        content: Text(
+            'This will set a temporary password for ${person['name']} (${person['role']}). They will be required to change it on next login.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Reset Password')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    setState(() => _isResetting = true);
+    try {
+      final adminProfile = widget.ref.read(currentProfileProvider).valueOrNull;
+      final response = await widget.ref.read(supabaseProvider).functions.invoke(
+        'admin-reset-password',
+        body: {
+          'user_id': person['profile_id'],
+          'admin_profile_id': adminProfile?.id,
+        },
+      );
+      final data = response.data as Map<String, dynamic>;
+      if (data['success'] != true) {
+        throw Exception(data['error'] ?? 'Failed to reset password');
+      }
+      if (mounted) {
+        await showDialog(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Password Reset'),
+            content: Text(
+                'Temporary password for ${person['name']}:\n\n${data['temp_password']}\n\nShare this with them securely. They\u{2019}ll be asked to change it on first login.'),
+            actions: [
+              FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Done')),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(ErrorUtils.friendly(e)), backgroundColor: AppColors.error500),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isResetting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Reset Password', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 4),
+              const Text(
+                'Select an employee or supervisor to set a temporary password for them.',
+                style: TextStyle(fontSize: 12, color: AppColors.secondary500),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _searchController,
+                onChanged: _filter,
+                decoration: const InputDecoration(
+                  hintText: 'Search by name or code',
+                  prefixIcon: Icon(Icons.search_rounded),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        if (_isResetting) const LinearProgressIndicator(),
+        Expanded(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _filtered.isEmpty
+                  ? const Center(child: Text('No matching employees/supervisors'))
+                  : ListView.separated(
+                      controller: widget.scrollController,
+                      itemCount: _filtered.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (_, i) {
+                        final person = _filtered[i];
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: person['role'] == 'Supervisor'
+                                ? AppColors.accent100
+                                : AppColors.primary100,
+                            child: Text(
+                              (person['name'] as String).isNotEmpty
+                                  ? (person['name'] as String)[0].toUpperCase()
+                                  : '?',
+                            ),
+                          ),
+                          title: Text(person['name'] as String),
+                          subtitle: Text('${person['role']} \u{2022} ${person['code']}'),
+                          trailing: const Icon(Icons.lock_reset_rounded, size: 20),
+                          onTap: _isResetting ? null : () => _confirmReset(person),
+                        );
+                      },
+                    ),
+        ),
+      ],
     );
   }
 }
