@@ -38,6 +38,7 @@ import '../../presentation/settings/settings_screen.dart';
 import '../../presentation/notifications/notifications_screen.dart';
 
 import '../../presentation/profile/my_bank_details_screen.dart';
+import '../../presentation/attendance/today_attendance_screen.dart';
 import '../../presentation/dashboard/employee_attendance_history_screen.dart';
 import '../../presentation/dashboard/employee_payroll_history_screen.dart';
 
@@ -127,6 +128,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const EmployeesListScreen(),
             routes: [
               GoRoute(
+                name: 'employee-active',
+                path: 'active',
+                builder: (_, __) => const EmployeesListScreen(initialStatus: 'active'),
+              ),
+              GoRoute(
                 name: 'employee-new',
                 path: 'new',
                 builder: (_, __) => const EmployeeFormScreen(),
@@ -177,6 +183,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const AttendanceListScreen(),
             routes: [
               GoRoute(
+                name: 'attendance-today',
+                path: 'today',
+                builder: (_, __) => const TodayAttendanceScreen(),
+                routes: [
+                  GoRoute(
+                    name: 'attendance-today-filter',
+                    path: ':filter',
+                    builder: (_, state) => TodayAttendanceScreen(
+                        initialFilter: state.pathParameters['filter']),
+                  ),
+                ],
+              ),
+              GoRoute(
                 name: 'attendance-new',
                 path: 'new',
                 builder: (_, __) => const AttendanceEntryScreen(),
@@ -208,6 +227,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const ExpensesListScreen(),
             routes: [
               GoRoute(
+                name: 'expense-filter',
+                path: 'filter/:status',
+                builder: (_, state) => ExpensesListScreen(
+                    initialFilter: state.pathParameters['status']),
+              ),
+              GoRoute(
                 name: 'expense-new',
                 path: 'new',
                 builder: (_, __) => const ExpenseFormScreen(),
@@ -232,6 +257,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: '/payroll',
             builder: (_, __) => const PayrollListScreen(),
             routes: [
+              GoRoute(
+                name: 'payroll-filter',
+                path: 'filter/:status',
+                builder: (_, state) => PayrollListScreen(
+                    initialStatusFilter: state.pathParameters['status']),
+              ),
               GoRoute(
                 name: 'payroll-process',
                 path: 'process',
