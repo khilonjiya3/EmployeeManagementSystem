@@ -32,7 +32,7 @@ class _ForcePasswordChangeScreenState
   }
 
   Future<void> _save() async {
-    if (_completed) return; // guard: prevent re-entry if already done
+    if (_completed) return;
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
 
@@ -49,16 +49,15 @@ class _ForcePasswordChangeScreenState
             .update({'must_change_password': false}).eq('id', user.id);
       }
 
-      // Mark as completed BEFORE touching the provider, so any redirect
-      // re-evaluation during the refresh window doesn't re-show this screen.
       _completed = true;
 
-      // Invalidate and AWAIT the new profile value before navigating.
-      // This is the critical fix: previously context.go() fired while the
-      // provider was still resolving, so the router's redirect logic read
-      // the stale (mustChangePassword: true) profile and bounced back here.
       ref.invalidate(currentProfileProvider);
       await ref.read(currentProfileProvider.future);
+
+      // Wait for GoRouter's auth stream to settle — employees trigger
+      // two stream events (password + user_metadata), causing a stale
+      // redirect on the second event without this delay.
+      await Future.delayed(const Duration(milliseconds: 300));
 
       if (mounted) context.go('/dashboard');
     } catch (e) {
