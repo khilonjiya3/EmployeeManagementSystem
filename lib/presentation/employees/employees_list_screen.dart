@@ -59,7 +59,8 @@ class EmployeesNotifier
 }
 
 class EmployeesListScreen extends ConsumerStatefulWidget {
-  const EmployeesListScreen({super.key});
+  final String? initialStatus;
+  const EmployeesListScreen({super.key, this.initialStatus});
 
   @override
   ConsumerState<EmployeesListScreen> createState() =>
@@ -74,6 +75,12 @@ class _EmployeesListScreenState extends ConsumerState<EmployeesListScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialStatus != null) {
+      _selectedStatus = widget.initialStatus;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(employeesProvider.notifier).filterStatus(widget.initialStatus);
+      });
+    }
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >=
           _scrollController.position.maxScrollExtent - 200) {
@@ -208,11 +215,6 @@ class _EmployeesListScreenState extends ConsumerState<EmployeesListScreen> {
             ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/employees/new'),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Add Employee'),
       ),
     );
   }
