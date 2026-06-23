@@ -499,7 +499,16 @@ class _EmployeeDetailBodyState extends ConsumerState<_EmployeeDetailBody> {
   bool _isCreatingLogin = false;
 
   Future<void> _createLogin() async {
-    final username = '${widget.employee.employeeCode.toUpperCase()}@ems.com';
+    final mobile = widget.employee.mobile;
+    if (mobile == null || mobile.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Add a mobile number to this employee before creating a login.'),
+        backgroundColor: AppColors.error500,
+      ));
+      return;
+    }
+
+    final username = mobile.trim();
     final confirm = await w.ConfirmDialog.show(
       context,
       title: 'Create Employee Login?',
