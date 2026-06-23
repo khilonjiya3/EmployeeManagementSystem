@@ -499,12 +499,13 @@ class _EmployeeDetailBodyState extends ConsumerState<_EmployeeDetailBody> {
   bool _isCreatingLogin = false;
 
   Future<void> _createLogin() async {
+    final username = '${widget.employee.employeeCode.toUpperCase()}@ems.com';
     final confirm = await w.ConfirmDialog.show(
       context,
       title: 'Create Employee Login?',
       message:
           'This will create login credentials for ${widget.employee.name}.\n\n'
-          'Username: ${widget.employee.employeeCode}\n'
+          'Username: $username\n'
           'Password: Abcd@123 (must change on first login)',
       confirmLabel: 'Create Login',
       confirmColor: AppColors.primary500,
@@ -518,7 +519,6 @@ class _EmployeeDetailBodyState extends ConsumerState<_EmployeeDetailBody> {
           .createLogin(widget.employee.id, widget.employee.employeeCode);
 
       if (mounted) {
-        // Refresh the detail provider so the button disappears
         ref.invalidate(_employeeDetailProvider(widget.employee.id));
 
         showDialog(
@@ -546,12 +546,14 @@ class _EmployeeDetailBodyState extends ConsumerState<_EmployeeDetailBody> {
                           const Icon(Icons.person_outline,
                               size: 16, color: AppColors.primary600),
                           const SizedBox(width: 8),
-                          Text(
-                            'Username: ${widget.employee.employeeCode}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontFamily: 'Inter',
-                              color: AppColors.primary700,
+                          Expanded(
+                            child: Text(
+                              'Username: $username',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontFamily: 'Inter',
+                                color: AppColors.primary700,
+                              ),
                             ),
                           ),
                         ],
