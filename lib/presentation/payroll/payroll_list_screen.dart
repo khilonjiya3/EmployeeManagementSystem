@@ -24,7 +24,8 @@ final allSupervisorsForPayrollProvider = FutureProvider.autoDispose<List<Supervi
 });
 
 class PayrollListScreen extends ConsumerStatefulWidget {
-  const PayrollListScreen({super.key});
+  final String? initialStatusFilter; // 'paid', 'processed', null=all
+  const PayrollListScreen({super.key, this.initialStatusFilter});
 
   @override
   ConsumerState<PayrollListScreen> createState() => _PayrollListScreenState();
@@ -33,10 +34,12 @@ class PayrollListScreen extends ConsumerStatefulWidget {
 class _PayrollListScreenState extends ConsumerState<PayrollListScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  late String? _statusFilter;
 
   @override
   void initState() {
     super.initState();
+    _statusFilter = widget.initialStatusFilter;
     _tabController = TabController(length: 2, vsync: this);
   }
 
@@ -86,9 +89,12 @@ class _PayrollListScreenState extends ConsumerState<PayrollListScreen>
                   loading: () => const Center(child: CircularProgressIndicator()),
                   error: (e, _) => Center(child: Text('Error: $e')),
                   data: (list) {
-                    if (list.isEmpty) {
+                    final filtered = _statusFilter == null
+                        ? list
+                        : list.where((p) => p.status == _statusFilter).toList();
+                    if (filtered.isEmpty) {
                       return w.EmptyState(
-                        title: 'No payroll processed',
+                        title: _statusFilter != null ? 'No ${_statusFilter} payroll' : 'No payroll processed',
                         subtitle: 'Process payroll for ${DateFormat('MMMM yyyy').format(selectedMonth)}',
                         icon: Icons.payments_outlined,
                         actionLabel: 'Process Payroll',
@@ -96,12 +102,27 @@ class _PayrollListScreenState extends ConsumerState<PayrollListScreen>
                       );
                     }
 
-                    final totalNet = list.fold<double>(0, (sum, p) => sum + p.netWage);
-                    final paidCount = list.where((p) => p.isPaid).length;
+                    final totalNet = filtered.fold<double>(0, (sum, p) => sum + p.netWage);
+                    final paidCount = filtered.where((p) => p.isPaid).length;
 
                     return Column(
                       children: [
-                        _PayrollSummaryBar(totalNet: totalNet, paidCount: paidCount, total: list.length),
+                        if (_statusFilter != null)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                            child: Row(
+                              children: [
+                                Text('Filtered: ${_statusFilter!.toUpperCase()}',
+                                    style: const TextStyle(fontSize: 12, color: AppColors.primary500)),
+                                const Spacer(),
+                                TextButton(
+                                  onPressed: () => setState(() => _statusFilter = null),
+                                  child: const Text('Clear filter'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        _PayrollSummaryBar(totalNet: totalNet, paidCount: paidCount, total: filtered.length),
                         Expanded(
                           child: RefreshIndicator(
                             onRefresh: () async {
@@ -111,11 +132,11 @@ class _PayrollListScreenState extends ConsumerState<PayrollListScreen>
                             },
                             child: ListView.separated(
                               padding: const EdgeInsets.all(16),
-                              itemCount: list.length,
+                              itemCount: filtered.length,
                               separatorBuilder: (_, __) => const SizedBox(height: 8),
                               itemBuilder: (_, i) => _PayrollCardWithPay(
-                                payroll: list[i],
-                                onTap: () => context.push('/payroll/${list[i].id}'),
+                                payroll: filtered[i],
+                                onTap: () => context.push('/payroll/${filtered[i].id}'),
                               ),
                             ),
                           ),
