@@ -30,20 +30,23 @@ class AppColors {
   static const secondary900 = Color(0xFF0F172A);
 
   // Accent - Amber
-  static const accent50 = Color(0xFFFFFBEB);
-  static const accent100 = Color(0xFFFEF3C7);
-  static const accent200 = Color(0xFFFDE68A);
-  static const accent300 = Color(0xFFFCD34D);
-  static const accent400 = Color(0xFFFBBF24);
-  static const accent500 = Color(0xFFF59E0B);
-  static const accent600 = Color(0xFFD97706);
-
+  // Accent - Amber
+static const accent50 = Color(0xFFFFFBEB);
+static const accent100 = Color(0xFFFEF3C7);
+static const accent200 = Color(0xFFFDE68A);
+static const accent300 = Color(0xFFFCD34D);
+static const accent400 = Color(0xFFFBBF24);
+static const accent500 = Color(0xFFF59E0B);
+static const accent600 = Color(0xFFD97706);
+static const accent700 = Color(0xFFB45309);
   // Success - Emerald
-  static const success50 = Color(0xFFECFDF5);
-  static const success100 = Color(0xFFD1FAE5);
-  static const success500 = Color(0xFF10B981);
-  static const success600 = Color(0xFF059669);
-  static const success700 = Color(0xFF047857);
+  // Success - Emerald
+static const success50 = Color(0xFFECFDF5);
+static const success100 = Color(0xFFD1FAE5);
+static const success300 = Color(0xFF6EE7B7);
+static const success500 = Color(0xFF10B981);
+static const success600 = Color(0xFF059669);
+static const success700 = Color(0xFF047857);
 
   // Warning - Orange
   static const warning50 = Color(0xFFFFF7ED);
