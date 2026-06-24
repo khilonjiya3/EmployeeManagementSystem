@@ -752,49 +752,37 @@ class ExpenseDetailScreen extends ConsumerWidget {
   }
 
   Widget _buildPayButton(BuildContext context, WidgetRef ref, ExpenseModel exp) {
-    final paymentEnabled = ref.watch(paymentModuleEnabledProvider);
-
-    if (!paymentEnabled) {
-      return ElevatedButton.icon(
-        icon: const Icon(Icons.check_rounded, size: 18),
-        label: const Text('Mark as Paid'),
-        style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary500),
-        onPressed: () async {
-          try {
-            await ref.read(expenseRepositoryProvider).update(exp.id, {
-              'payment_status': 'paid',
-              'payment_method': 'cash',
-              'payment_confirmed_at': DateTime.now().toIso8601String(),
-              'payment_confirmed_by': ref.read(supabaseProvider).auth.currentUser?.id,
-            });
-            // Use notifier.load() rather than invalidate() so the
-            // currently-mounted widget sees the update immediately
-            // without needing to reopen the screen.
-            await ref.read(expensesProvider.notifier).refresh();
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Marked as paid'),
-                  backgroundColor: AppColors.success500,
-                ),
-              );
-            }
-          } catch (e) {
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(ErrorUtils.friendly(e)), backgroundColor: AppColors.error500),
-              );
-            }
+    return w.CashfreePayButton(
+      referenceType: 'expense',
+      referenceId: exp.id,
+      payeeName: exp.supervisorName ?? 'Supervisor',
+      amount: exp.amount,
+      currentPaymentStatus: exp.paymentStatus ?? 'unpaid',
+      onMarkPaid: () async {
+        try {
+          await ref.read(expenseRepositoryProvider).update(exp.id, {
+            'payment_status': 'paid',
+            'payment_method': 'cash',
+            'payment_confirmed_at': DateTime.now().toIso8601String(),
+            'payment_confirmed_by': ref.read(supabaseProvider).auth.currentUser?.id,
+          });
+          await ref.read(expensesProvider.notifier).refresh();
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Marked as paid'),
+                backgroundColor: AppColors.success500,
+              ),
+            );
           }
-        },
-      );
-    }
-
-    return ElevatedButton.icon(
-      icon: const Icon(Icons.account_balance_wallet_rounded, size: 18),
-      label: Text('Pay ${CurrencyUtils.format(exp.amount)} via UPI'),
-      style: ElevatedButton.styleFrom(backgroundColor: AppColors.success500),
-      onPressed: () => w.UpiPaymentHelper.payExpense(context, ref, exp),
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(ErrorUtils.friendly(e)), backgroundColor: AppColors.error500),
+            );
+          }
+        }
+      },
     );
   }
 
