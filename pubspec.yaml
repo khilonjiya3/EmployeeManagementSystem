@@ -82,6 +82,9 @@ dependencies:
   android_intent_plus: ^4.0.3
   device_apps: ^2.2.0
 
+  # QR code generation for UPI payment (camera-scan flow, no risk engine issues)
+  qr_flutter: ^4.1.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
