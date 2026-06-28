@@ -32,6 +32,7 @@ import '../../presentation/expenses/expense_detail_screen.dart';
 import '../../presentation/payroll/payroll_list_screen.dart';
 import '../../presentation/payroll/payroll_process_screen.dart';
 import '../../presentation/payroll/payroll_detail_screen.dart';
+import '../../presentation/payroll/payroll_overview_detail_screen.dart';
 
 import '../../presentation/reports/reports_screen.dart';
 import '../../presentation/settings/settings_screen.dart';
@@ -262,6 +263,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: 'filter/:status',
                 builder: (_, state) => PayrollListScreen(
                     initialStatusFilter: state.pathParameters['status']),
+              ),
+              GoRoute(
+                name: 'payroll-overview',
+                path: 'overview/:filter',
+                builder: (_, state) => PayrollOverviewDetailScreen(
+                    filter: state.pathParameters['filter'] ?? 'liability'),
               ),
               GoRoute(
                 name: 'payroll-process',
