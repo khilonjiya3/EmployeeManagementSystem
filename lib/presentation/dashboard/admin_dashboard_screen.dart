@@ -712,12 +712,12 @@ class _SupervisorDashboardScreenState
                     children: [
                       Expanded(
                         child: _StatCard(
-                          title: 'Employees',
+                          title: 'My Employees',
                           value: '${stats['total_employees']}',
                           icon: Icons.people_rounded,
                           iconColor: AppColors.primary500,
                           iconBg: AppColors.primary50,
-                          onTap: () => context.push('/employees'),
+                          onTap: null,
                         ),
                       ),
                       const SizedBox(width: 12),
