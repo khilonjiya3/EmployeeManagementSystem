@@ -59,6 +59,7 @@ class SupervisorsListScreen extends ConsumerStatefulWidget {
 class _SupervisorsListScreenState
     extends ConsumerState<SupervisorsListScreen> {
   final _searchController = TextEditingController();
+  bool? _activeFilter; // null=all, true=active, false=inactive
 
   @override
   void dispose() {
@@ -74,12 +75,32 @@ class _SupervisorsListScreenState
       appBar: AppBar(
         title: const Text('Supervisors'),
         actions: [
-          IconButton(
-              icon: const Icon(Icons.add_rounded),
-              onPressed: () async {
-                await context.push('/supervisors/new');
-                ref.read(supervisorsProvider.notifier).refresh();
-              }),
+          PopupMenuButton<bool?>(
+            icon: Icon(
+              Icons.filter_list_rounded,
+              color: _activeFilter != null ? AppColors.primary500 : null,
+            ),
+            tooltip: 'Filter by status',
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            onSelected: (value) {
+              setState(() => _activeFilter = value);
+              ref.read(supervisorsProvider.notifier).load(isActive: value);
+            },
+            itemBuilder: (_) => [
+              CheckedPopupMenuItem<bool?>(value: null, checked: _activeFilter == null, child: const Text('All')),
+              CheckedPopupMenuItem<bool?>(value: true, checked: _activeFilter == true, child: const Text('Active')),
+              CheckedPopupMenuItem<bool?>(value: false, checked: _activeFilter == false, child: const Text('Inactive')),
+            ],
+          ),
+          TextButton.icon(
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: const Text('Add Supervisor'),
+            onPressed: () async {
+              await context.push('/supervisors/new');
+              ref.read(supervisorsProvider.notifier).refresh();
+            },
+          ),
+          const SizedBox(width: 4),
         ],
       ),
       body: Column(
