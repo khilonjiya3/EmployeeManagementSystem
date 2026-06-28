@@ -103,7 +103,12 @@ class _ExpensesListScreenState extends ConsumerState<ExpensesListScreen> with Si
               ),
             ),
           if (profile?.isSupervisor == true)
-            IconButton(icon: const Icon(Icons.add_rounded), onPressed: () => context.push('/expenses/new')),
+            TextButton.icon(
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('Add Expense'),
+              onPressed: () => context.push('/expenses/new'),
+            ),
+          const SizedBox(width: 4),
         ],
         bottom: TabBar(
           controller: _tabController,
@@ -143,13 +148,7 @@ class _ExpensesListScreenState extends ConsumerState<ExpensesListScreen> with Si
                 ),
               ),
       ),
-      floatingActionButton: profile?.isSupervisor == true
-          ? FloatingActionButton.extended(
-              onPressed: () => context.push('/expenses/new'),
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Add Expense'),
-            )
-          : null,
+      floatingActionButton: null,
     );
   }
 }
@@ -824,6 +823,8 @@ class ExpenseDetailScreen extends ConsumerWidget {
         } else {
           await ref.read(expenseRepositoryProvider).reject(exp.id, profile.id, remarks: remarks!);
         }
+        // Immediate update - refresh provider so list updates without re-opening
+        await ref.read(expensesProvider.notifier).refresh();
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
