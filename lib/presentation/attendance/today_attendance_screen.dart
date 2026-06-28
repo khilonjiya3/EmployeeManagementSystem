@@ -7,24 +7,17 @@ import '../../data/models/app_models.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../shared/widgets.dart' as w;
 
-// Provider for today's attendance details with optional status filter
+// Provider fetches ALL records for today \u{2014} filtering happens client-side
+// so we can distinguish "nothing submitted" from "submitted but none match filter"
 final _todayAttendanceDetailProvider = FutureProvider.autoDispose
-    .family<List<Map<String, dynamic>>, String?>((ref, statusFilter) async {
+    .family<List<Map<String, dynamic>>, String?>((ref, _ignored) async {
   final client = ref.read(supabaseProvider);
   final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-
-  // Fetch today's attendance records with employee details
-  var query = client
+  final data = await client
       .from('attendance_details')
       .select(
           '*, employees(name, employee_code, designation), attendance!inner(attendance_date, location_name, is_approved, supervisors(name, supervisor_code))')
       .eq('attendance.attendance_date', today);
-
-  if (statusFilter != null) {
-    query = query.eq('status', statusFilter);
-  }
-
-  final data = await query.order('created_at', ascending: false);
   return (data as List).cast<Map<String, dynamic>>();
 });
 
@@ -52,7 +45,7 @@ class _TodayAttendanceScreenState
   @override
   Widget build(BuildContext context) {
     final recordsAsync =
-        ref.watch(_todayAttendanceDetailProvider(_statusFilter));
+        ref.watch(_todayAttendanceDetailProvider(null));
     final today = DateFormat('EEEE, d MMMM yyyy').format(DateTime.now());
 
     return Scaffold(
@@ -106,7 +99,13 @@ class _TodayAttendanceScreenState
               loading: () =>
                   const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('Error: $e')),
-              data: (records) {
+              data: (allRecords) {
+                // Apply status filter client-side so empty state knows
+                // whether nothing was submitted vs just none match the filter
+                final records = _statusFilter == null
+                    ? allRecords
+                    : allRecords.where((r) => r['status'] == _statusFilter).toList();
+
                 // Apply location/supervisor filters client-side
                 final filtered = records.where((r) {
                   final att = r['attendance'] as Map? ?? {};
@@ -149,19 +148,26 @@ class _TodayAttendanceScreenState
                   ..sort();
 
                 if (records.isEmpty) {
-                  return const Center(
+                  final nothingSubmitted = allRecords.isEmpty;
+                  final emptyTitle = _statusFilter == 'present'
+                      ? 'No one present today'
+                      : _statusFilter == 'absent'
+                          ? 'No one absent today'
+                          : 'No attendance records today';
+                  final emptySubtitle = nothingSubmitted
+                      ? 'No supervisors have submitted attendance yet today.'
+                      : 'Attendance was submitted but no ${_statusFilter ?? ''} records found for current filters.';
+                  return Center(
                     child: w.EmptyState(
-                      title: 'No attendance records today',
-                      subtitle:
-                          'No supervisors have submitted attendance yet today.',
+                      title: emptyTitle,
+                      subtitle: emptySubtitle,
                       icon: Icons.event_busy_rounded,
                     ),
                   );
                 }
 
                 return RefreshIndicator(
-                  onRefresh: () async => ref
-                      .invalidate(_todayAttendanceDetailProvider(_statusFilter)),
+                  onRefresh: () async => ref.invalidate(_todayAttendanceDetailProvider(null)),
                   child: Column(
                     children: [
                       // Location + Supervisor filter row
